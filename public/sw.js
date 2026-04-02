@@ -1,5 +1,5 @@
 // Increment this version to force cache update on all devices
-const CACHE_VERSION = 'bandprompt-v4';
+const CACHE_VERSION = 'bandprompt-v5';
 const ASSETS = ['/', '/index.html', '/manifest.json', '/css/styles.css', '/js/config.js', '/js/app.js', '/js/sw-register.js'];
 
 self.addEventListener('install', e => {
@@ -38,6 +38,11 @@ self.addEventListener('fetch', e => {
   }
   // Supabase — network only, never cache
   if (e.request.url.includes('supabase')) {
+    e.respondWith(fetch(e.request));
+    return;
+  }
+  // Socket.IO — network only, never cache (real-time connection)
+  if (e.request.url.includes('/socket.io/')) {
     e.respondWith(fetch(e.request));
     return;
   }
