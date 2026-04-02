@@ -1799,7 +1799,7 @@ function startWithCountdown() {
   const timeSig = parseInt(song.timeSignature.split('/')[0]) || 4;
   const countBeats = timeSig;
   // Audio time when countdown starts
-  const countdownAudioStart = ctx.currentTime + 0.15;
+  const countdownAudioStart = ctx.currentTime + 0.05;
   // Server time when the actual song starts (after countdown)
   const songStartServerTime = serverNow() + (countdownAudioStart - ctx.currentTime) * 1000 + countBeats * secPerBeat * 1000;
 
@@ -1835,33 +1835,49 @@ function runCountdownUI(song, startTime, secPerBeat, timeSig, countBeats) {
   if (songEl) songEl.textContent = song.name;
   if (bpmEl) bpmEl.textContent = song.bpm + ' bpm · ' + song.timeSignature;
 
-  const labels = [];
-  for (let i = 0; i < countBeats; i++) labels.push(countBeats - i);
+  // Schedule all audio clicks immediately via AudioContext (preciso)
+  for (let i = 0; i < countBeats; i++) {
+    playCountdownClick(startTime + i * secPerBeat, i === 0);
+  }
 
-  labels.forEach((label, i) => {
-    const t = startTime + i * secPerBeat;
-    const delayMs = (t - ctx.currentTime) * 1000;
-    setTimeout(() => {
-      if (numEl) { numEl.textContent = label; numEl.classList.add('pulse'); setTimeout(() => numEl.classList.remove('pulse'), 100); }
-    }, Math.max(0, delayMs));
-    playCountdownClick(t, i === 0);
-  });
+  // Visual updates via rAF usando el reloj del AudioContext (evita drift de setTimeout en móvil)
+  const endTime = startTime + countBeats * secPerBeat;
+  let lastBeat = -1;
+  let finished = false;
 
-  const totalMs = (startTime + countBeats * secPerBeat - ctx.currentTime) * 1000;
-  setTimeout(() => {
-    if (overlay) overlay.classList.remove('visible');
-    currentBarInSection = 1;
-    isPlaying = true;
-    if (syncConnected) {
-      // En modo sync: el servidor genera los beats — no se necesita scheduler local
-      scheduledBeat = 0;
-      sectionStartScheduledBeat = 0;
-      lastRenderedAbsBeat = -1;
-    } else {
-      startAudioMetronome();
+  function rafUpdate() {
+    if (finished) return;
+    const now = ctx.currentTime;
+    const beat = Math.floor((now - startTime) / secPerBeat);
+
+    if (beat >= 0 && beat < countBeats && beat !== lastBeat) {
+      lastBeat = beat;
+      const label = countBeats - beat;
+      if (numEl) {
+        numEl.textContent = label;
+        numEl.classList.add('pulse');
+        setTimeout(() => numEl.classList.remove('pulse'), 80);
+      }
     }
-    if (syncRole === 'director') syncSendState();
-  }, Math.max(0, totalMs));
+
+    if (now >= endTime) {
+      finished = true;
+      if (overlay) overlay.classList.remove('visible');
+      currentBarInSection = 1;
+      isPlaying = true;
+      if (syncConnected) {
+        scheduledBeat = 0;
+        sectionStartScheduledBeat = 0;
+        lastRenderedAbsBeat = -1;
+      } else {
+        startAudioMetronome();
+      }
+      if (syncRole === 'director') syncSendState();
+      return;
+    }
+    requestAnimationFrame(rafUpdate);
+  }
+  requestAnimationFrame(rafUpdate);
 }
 
 function showMemberWaiting() {
