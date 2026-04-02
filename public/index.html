@@ -1845,6 +1845,10 @@ function runCountdownUI(song, startTime, secPerBeat, timeSig, countBeats) {
   let lastBeat = -1;
   let finished = false;
 
+  // METRO_SCHEDULE_AHEAD_MS en el servidor es 300ms — activar isPlaying
+  // antes de eso para que el beat 0 (downbeat) no sea descartado.
+  const earlyActivateThreshold = 0.45; // 450ms antes del fin
+
   function rafUpdate() {
     if (finished) return;
     const now = ctx.currentTime;
@@ -1860,16 +1864,20 @@ function runCountdownUI(song, startTime, secPerBeat, timeSig, countBeats) {
       }
     }
 
+    // Activar isPlaying y preparar contadores antes de que llegue el beat 0 del servidor
+    if (!isPlaying && syncConnected && now >= endTime - earlyActivateThreshold) {
+      isPlaying = true;
+      scheduledBeat = 0;
+      sectionStartScheduledBeat = 0;
+      lastRenderedAbsBeat = -1;
+    }
+
     if (now >= endTime) {
       finished = true;
       if (overlay) overlay.classList.remove('visible');
       currentBarInSection = 1;
-      isPlaying = true;
-      if (syncConnected) {
-        scheduledBeat = 0;
-        sectionStartScheduledBeat = 0;
-        lastRenderedAbsBeat = -1;
-      } else {
+      if (!syncConnected) {
+        isPlaying = true;
         startAudioMetronome();
       }
       if (syncRole === 'director') syncSendState();
