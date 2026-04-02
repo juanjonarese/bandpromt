@@ -15,6 +15,7 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="/socket.io/socket.io.js"></script>
 <script src="/js/clock-sync.js"></script>
+<script src="/js/audio-engine.js"></script>
 <script>
   const SUPABASE_URL = 'https://xsmruqyfoienfuhmbgyn.supabase.co';
   const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhzbXJ1cXlmb2llbmZ1aG1iZ3luIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ4OTM0MDksImV4cCI6MjA5MDQ2OTQwOX0.Qvsm7NNxyGh6pMcv5yFy3S25tciKwuwsBjY9hh-eeCo';
@@ -995,12 +996,19 @@ let lyricFontSize = 28;
 
 // ===== WEB AUDIO METRONOME =====
 let audioCtx = null;
+let audioEngine = null; // AudioEngine para sync server-side
 let nextBeatTime = 0;
 let scheduleAheadTime = 0.1;
 let lookahead = 25.0;
 let schedulerTimer = null;
 let scheduledBeat = 0;
 let sectionStartScheduledBeat = 0; // scheduledBeat value when current section began
+
+function getAudioEngine() {
+  if (!audioEngine) audioEngine = new AudioEngine();
+  audioEngine.init();
+  return audioEngine;
+}
 
 // ===== SPEECH ENGINE =====
 let speechEnabled = true;
@@ -1221,6 +1229,10 @@ function startAudioMetronome() {
 
 function stopAudioMetronome() {
   if (schedulerTimer) { clearInterval(schedulerTimer); schedulerTimer = null; }
+  // Detener metrónomo server-side si el director está en sesión sync
+  if (syncConnected && syncRole === 'director' && socket) {
+    socket.emit('stop_metronome');
+  }
   scheduledBeat = 0;
   lastRenderedAbsBeat = -1;
   resetSpokenCountdowns();
@@ -1799,6 +1811,12 @@ function startWithCountdown() {
       timeSignature: song.timeSignature,
       countBeats: countBeats
     });
+    // Iniciar metrónomo server-side: el servidor generará beats desde songStartServerTime
+    socket.emit('start_metronome', {
+      bpm: song.bpm,
+      beatsPerMeasure: timeSig,
+      startAt: songStartServerTime
+    });
   }
 
   // Run countdown locally
@@ -1832,7 +1850,14 @@ function runCountdownUI(song, startTime, secPerBeat, timeSig, countBeats) {
     if (overlay) overlay.classList.remove('visible');
     currentBarInSection = 1;
     isPlaying = true;
-    startAudioMetronome();
+    if (syncConnected) {
+      // En modo sync: el servidor genera los beats — no se necesita scheduler local
+      scheduledBeat = 0;
+      sectionStartScheduledBeat = 0;
+      lastRenderedAbsBeat = -1;
+    } else {
+      startAudioMetronome();
+    }
     if (syncRole === 'director') syncSendState();
   }, Math.max(0, totalMs));
 }
@@ -2154,10 +2179,11 @@ function syncInit(code, role) {
       console.log('[CLOCK] offset=' + offset + 'ms');
     });
 
-    // ── Eventos retransmitidos por el servidor ───────────────────────────
+    // ── Beats generados por el servidor ─────────────────────────────────
+    // Todos los clientes (director + miembros) reciben beats del servidor.
     socket.on('beat', (payload) => {
-      if (payload.from === syncGetDeviceId()) return;
-      if (syncRole === 'member' && isPlaying) syncReceiveBeat(payload);
+      if (!isPlaying) return;
+      handleServerBeat(payload);
     });
 
     socket.on('state', (payload) => {
@@ -2344,14 +2370,13 @@ function syncReceiveCountdown(payload) {
   // El scheduler arranca ya, pero nextBeatTime apunta al futuro exacto → no
   // programa ningún beat hasta que llegue ese instante, perfectamente alineado
   // con el director.
-  const audioTimeForSongStart = ctx.currentTime + Math.max(0.02, msUntilSongStart / 1000);
   if (schedulerTimer) { clearInterval(schedulerTimer); schedulerTimer = null; }
   currentBarInSection = 1;
   sectionStartScheduledBeat = 0;
   scheduledBeat = 0;
-  nextBeatTime = audioTimeForSongStart;
+  lastRenderedAbsBeat = -1;
   isPlaying = true;
-  schedulerTimer = setInterval(scheduleBeats, lookahead);
+  // El servidor genera los beats — no se necesita scheduler local en el miembro.
 
   const msUntilOverlay = Math.max(0, msUntilSongStart);
   setTimeout(() => {
@@ -2360,6 +2385,83 @@ function syncReceiveCountdown(payload) {
     const btn = document.getElementById('playBtn');
     if (btn) btn.innerHTML = '<svg viewBox="0 0 24 24" style="width:18px;height:18px;fill:#000"><rect x="5" y="3" width="4" height="18"/><rect x="15" y="3" width="4" height="18"/></svg>';
   }, msUntilOverlay);
+}
+
+// ── handleServerBeat — procesa beats generados por el servidor ───────────────
+// Todos los clientes (director + miembros) llaman esta función al recibir 'beat'.
+function handleServerBeat(payload) {
+  const { scheduledTime, beatNumber, isDownbeat, bpm, beatsPerMeasure } = payload;
+
+  // 1. Audio preciso usando AudioEngine
+  if (metroSound) {
+    const eng = getAudioEngine();
+    eng.resume();
+    eng.scheduleClick(scheduledTime, isDownbeat, clockSync);
+  }
+
+  const song = songs.find(s => s.id === currentSongId);
+  if (!song) return;
+
+  const ctx = getAudioCtx();
+  const audioTime = ctx.currentTime + Math.max(0, (scheduledTime - clockSync.serverNow()) / 1000);
+  const timeSig = parseInt(song.timeSignature.split('/')[0]) || 4;
+
+  // 2. Avanzar compases/secciones en downbeats (excepto el beat 0 que es el inicio)
+  if (isDownbeat && beatNumber > 0) {
+    currentBarInSection++;
+    const sec = song.sections[currentSectionIdx];
+    if (sec && currentBarInSection > sec.bars) {
+      currentBarInSection = 1;
+      if (currentSectionIdx < song.sections.length - 1) {
+        currentSectionIdx++;
+        sectionStartScheduledBeat = beatNumber;
+        lastRenderedAbsBeat = -1;
+        if (syncRole === 'director' && syncConnected) syncSendState();
+      } else {
+        // Última sección terminó
+        const delay = Math.max(0, scheduledTime - clockSync.serverNow());
+        setTimeout(() => { if (isPlaying) nextSong(); }, delay);
+        return;
+      }
+    }
+  }
+
+  // 3. Guías de voz (solo el director, que tiene la estructura del tema con voice settings)
+  if (syncRole === 'director') {
+    const secAbsBeat = beatNumber - sectionStartScheduledBeat;
+    scheduleVoiceForBeat(song, currentSectionIdx, secAbsBeat, audioTime, timeSig);
+  }
+
+  // 4. Actualizaciones visuales sincronizadas con el beat
+  const delayMs = Math.max(0, scheduledTime - clockSync.serverNow() - 20);
+  const capturedBeat = beatNumber;
+  const capturedSectionIdx = currentSectionIdx;
+  const capturedBar = currentBarInSection;
+
+  setTimeout(() => {
+    if (!isPlaying) return;
+    beatCount = capturedBeat + 1;
+    scheduledBeat = capturedBeat;
+    currentSectionIdx = capturedSectionIdx;
+    currentBarInSection = capturedBar;
+
+    if (metroEnabled) {
+      const panel = document.getElementById('sectionCountdown');
+      if (panel) {
+        const cls = isDownbeat ? 'beat-accent' : 'beat-sub';
+        panel.classList.add(cls);
+        setTimeout(() => panel.classList.remove(cls), isDownbeat ? 120 : 80);
+      }
+    }
+
+    renderLive();
+
+    const beatInBar = beatNumber % timeSig;
+    for (let d = 0; d < timeSig; d++) {
+      const dot = document.getElementById('beat-dot-' + d);
+      if (dot) dot.classList.toggle('active', d === beatInBar);
+    }
+  }, delayMs);
 }
 
 function syncUpdateStatus(connected) {

@@ -6,15 +6,34 @@
  *   2. Servidor responde sync_response { clientSent, serverTime }
  *   3. Cliente calcula offset y usa clockSync.serverNow() para timestamps precisos
  *
+ * METRÓNOMO SERVER-SIDE:
+ *   El director emite start_metronome con bpm, beatsPerMeasure y startAt (server ms).
+ *   El servidor genera beats con scheduledTime preciso y los envía a toda la sala.
+ *   Todos los clientes (director + miembros) reciben beats del servidor y usan
+ *   AudioEngine.scheduleClick(scheduledTime, isDownbeat, clockSync) para audio.
+ *
  * RELAY DE EVENTOS:
- *   El director emite eventos (beat, state, setlist, songchange, countdown)
- *   que el servidor retransmite a todos los miembros de la sesión.
- *   Esto reemplaza a Supabase Realtime como transporte de sincronización.
+ *   state, setlist, songchange, countdown son retransmitidos por el servidor.
  *
  * SESIONES:
  *   Cada sesión es una sala de Socket.io identificada por el código de sesión.
  *   No requiere base de datos — todo en memoria.
  */
+
+// Metrónomo activo por sala: roomName → { scheduler }
+const activeMetronomes = new Map();
+
+const METRO_LOOKAHEAD_MS = 25;
+const METRO_SCHEDULE_AHEAD_MS = 300;
+
+function _stopMetronome(roomName) {
+  const metro = activeMetronomes.get(roomName);
+  if (metro) {
+    clearInterval(metro.scheduler);
+    activeMetronomes.delete(roomName);
+    console.log(`[metro] detenido en sala ${roomName}`);
+  }
+}
 
 function registerBandpromptSocket(io) {
   io.on("connection", (socket) => {
@@ -59,10 +78,51 @@ function registerBandpromptSocket(io) {
       callback?.({ success: true });
     });
 
+    // ─── Metrónomo server-side ────────────────────────────────────────────
+    // El director llama start_metronome con { bpm, beatsPerMeasure, startAt }
+    // donde startAt es el server-time (ms) del primer beat.
+    socket.on("start_metronome", ({ bpm, beatsPerMeasure, startAt }, callback) => {
+      const roomName = socket.data.roomName;
+      if (!roomName) return callback?.({ error: "No estás en una sesión" });
+
+      // Detener metrónomo previo si existe
+      _stopMetronome(roomName);
+
+      const msPerBeat = (60 / bpm) * 1000;
+      let beatNumber = 0;
+      // Si startAt no se proporcionó, comenzar con el lookahead estándar
+      let nextBeatTime = startAt || Date.now() + METRO_SCHEDULE_AHEAD_MS;
+
+      const scheduler = setInterval(() => {
+        const horizon = Date.now() + METRO_SCHEDULE_AHEAD_MS;
+        while (nextBeatTime < horizon) {
+          io.to(roomName).emit("beat", {
+            scheduledTime: nextBeatTime,
+            beatNumber,
+            isDownbeat: beatNumber % beatsPerMeasure === 0,
+            bpm,
+            beatsPerMeasure,
+          });
+          nextBeatTime += msPerBeat;
+          beatNumber++;
+        }
+      }, METRO_LOOKAHEAD_MS);
+
+      activeMetronomes.set(roomName, { scheduler });
+      console.log(`[metro] iniciado en sala ${roomName} — ${bpm} bpm, ${beatsPerMeasure}/? — startAt offset: ${startAt ? startAt - Date.now() : 'inmediato'}ms`);
+      callback?.({ success: true });
+    });
+
+    socket.on("stop_metronome", (callback) => {
+      if (socket.data.roomName) {
+        _stopMetronome(socket.data.roomName);
+      }
+      callback?.({ success: true });
+    });
+
     // ─── Relay de eventos director → miembros ────────────────────────────
-    // El director emite estos eventos y el servidor los retransmite a todos
-    // los demás miembros de la misma sesión (sin devolver al emisor).
-    const relayEvents = ["beat", "state", "setlist", "songchange", "countdown"];
+    // beat ya NO se retransmite — el servidor lo genera directamente.
+    const relayEvents = ["state", "setlist", "songchange", "countdown"];
     relayEvents.forEach((event) => {
       socket.on(event, (payload) => {
         if (socket.data.roomName) {
@@ -80,16 +140,21 @@ function registerBandpromptSocket(io) {
     // ─── Helper ───────────────────────────────────────────────────────────
     function _leaveSession(sock) {
       if (!sock.data.roomName) return;
-      sock.to(sock.data.roomName).emit("member_left", {
+      const roomName = sock.data.roomName;
+      sock.to(roomName).emit("member_left", {
         id: sock.id,
         role: sock.data.role,
       });
-      sock.leave(sock.data.roomName);
-      const room = io.sockets.adapter.rooms.get(sock.data.roomName);
+      sock.leave(roomName);
+      const room = io.sockets.adapter.rooms.get(roomName);
       const count = room ? room.size : 0;
       console.log(
-        `[session] ${sock.id} salió de ${sock.data.roomName} — ${count} cliente(s)`
+        `[session] ${sock.id} salió de ${roomName} — ${count} cliente(s)`
       );
+      // Detener metrónomo si la sala quedó vacía
+      if (count === 0) {
+        _stopMetronome(roomName);
+      }
       sock.data.roomName = null;
     }
   });
