@@ -62,6 +62,11 @@ function registerBandpromptSocket(io) {
         name: socket.data.name,
       });
 
+      // Pedir al director que reenvíe estado al nuevo miembro
+      if ((socket.data.role || 'member') === 'member') {
+        socket.to(roomName).emit("request_state", { newMemberId: socket.id });
+      }
+
       const room = io.sockets.adapter.rooms.get(roomName);
       const clientCount = room ? room.size : 1;
 
@@ -122,7 +127,7 @@ function registerBandpromptSocket(io) {
 
     // ─── Relay de eventos director → miembros ────────────────────────────
     // beat ya NO se retransmite — el servidor lo genera directamente.
-    const relayEvents = ["state", "setlist", "songchange", "countdown"];
+    const relayEvents = ["state", "setlist", "songchange", "countdown", "request_state"];
     relayEvents.forEach((event) => {
       socket.on(event, (payload) => {
         if (socket.data.roomName) {

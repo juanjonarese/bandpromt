@@ -2238,6 +2238,14 @@ function syncInit(code, role) {
       syncUpdateMemberList();
     });
 
+    // El servidor nos pide que reenviemos el estado al nuevo miembro
+    socket.on('request_state', () => {
+      if (syncRole === 'director' && syncConnected) {
+        syncSendSetlist();
+        syncSendState();
+      }
+    });
+
     socket.on('member_left', ({ id }) => {
       sessionMembers.delete(id);
       syncMemberCount = sessionMembers.size + 1;
