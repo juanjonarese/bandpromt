@@ -1,0 +1,2757 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="BandPrompt">
+<meta name="theme-color" content="#00cc44">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-192.png">
+<title>BandPrompt</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:wght@300;400;500;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="/socket.io/socket.io.js"></script>
+<script src="/js/clock-sync.js"></script>
+<script>
+  const SUPABASE_URL = 'https://xsmruqyfoienfuhmbgyn.supabase.co';
+  const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhzbXJ1cXlmb2llbmZ1aG1iZ3luIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ4OTM0MDksImV4cCI6MjA5MDQ2OTQwOX0.Qvsm7NNxyGh6pMcv5yFy3S25tciKwuwsBjY9hh-eeCo';
+  const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+</script>
+<style>
+  :root {
+    --green: #00cc44;
+    --green-dark: #009933;
+    --green-dim: #003311;
+    --bg: #0a0a0a;
+    --bg2: #111111;
+    --bg3: #1a1a1a;
+    --border: #2a2a2a;
+    --text: #f0f0f0;
+    --text2: #888;
+    --text3: #444;
+    --accent: #00cc44;
+    --danger: #ff3b30;
+    --mono: 'Space Mono', monospace;
+    --sans: 'DM Sans', sans-serif;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: var(--sans); min-height: 100vh; overflow: hidden; }
+
+  /* ===== SCREENS ===== */
+  .screen { display: none; width: 100vw; height: 100vh; flex-direction: column; }
+  .screen.active { display: flex; }
+
+  /* ===== NAV ===== */
+  .nav { display: flex; align-items: center; justify-content: space-between; padding: 12px 20px; border-bottom: 1px solid var(--border); background: var(--bg); flex-shrink: 0; position: relative; z-index: 20; }
+  .nav-logo { font-family: var(--mono); font-size: 16px; color: var(--green); letter-spacing: -1px; }
+  .nav-logo span { color: var(--text2); }
+  .nav-tabs { display: flex; gap: 4px; }
+  .nav-tab { background: none; border: none; color: var(--text2); font-family: var(--sans); font-size: 13px; padding: 6px 14px; border-radius: 6px; cursor: pointer; transition: all 0.15s; }
+  .nav-tab:hover { background: var(--bg3); color: var(--text); }
+  .nav-tab.active { background: var(--bg3); color: var(--green); }
+  .nav-actions { display: flex; gap: 8px; }
+  .btn { border: 1px solid var(--border); background: var(--bg2); color: var(--text); font-family: var(--sans); font-size: 13px; padding: 7px 16px; border-radius: 6px; cursor: pointer; transition: all 0.15s; }
+  .btn:hover { border-color: var(--green); color: var(--green); }
+  .btn.primary { background: var(--green); border-color: var(--green); color: #000; font-weight: 700; }
+  .btn.primary:hover { background: var(--green-dark); }
+  .btn.danger { border-color: var(--danger); color: var(--danger); }
+  /* ── Hamburger button ── */
+  .hamburger { display: none; align-items: center; justify-content: center; width: 38px; height: 38px; background: var(--bg3); border: 1px solid var(--border); border-radius: 8px; cursor: pointer; flex-direction: column; gap: 5px; padding: 0; transition: border-color 0.15s; }
+  .hamburger:hover { border-color: var(--green); }
+  .hamburger span { display: block; width: 16px; height: 1.5px; background: var(--text); border-radius: 2px; transition: all 0.25s cubic-bezier(.4,0,.2,1); }
+  .hamburger.open span:nth-child(1) { transform: translateY(6.5px) rotate(45deg); }
+  .hamburger.open span:nth-child(2) { opacity: 0; transform: scaleX(0); }
+  .hamburger.open span:nth-child(3) { transform: translateY(-6.5px) rotate(-45deg); }
+
+  /* ── Drawer overlay ── */
+  .nav-drawer { display: none; position: fixed; inset: 0; z-index: 100; }
+  .nav-drawer.open { display: block; }
+  .nav-drawer-backdrop { position: absolute; inset: 0; background: rgba(0,0,0,0.6); }
+  /* ── Drawer panel — slides in from right ── */
+  .nav-drawer-inner { position: absolute; top: 0; right: 0; bottom: 0; width: 280px; background: var(--bg2); display: flex; flex-direction: column; transform: translateX(100%); transition: transform 0.28s cubic-bezier(.4,0,.2,1); border-left: 1px solid var(--border); }
+  .nav-drawer.open .nav-drawer-inner { transform: translateX(0); }
+
+  /* ── User profile block ── */
+  .drawer-profile { padding: 24px 20px 16px; border-bottom: 1px solid var(--border); }
+  .drawer-profile-avatar { width: 48px; height: 48px; border-radius: 50%; border: 2px solid var(--border); margin-bottom: 10px; object-fit: cover; }
+  .drawer-profile-avatar-placeholder { width: 48px; height: 48px; border-radius: 50%; background: var(--bg3); border: 2px solid var(--border); display: flex; align-items: center; justify-content: center; margin-bottom: 10px; }
+  .drawer-profile-avatar-placeholder svg { width: 22px; height: 22px; fill: var(--text3); }
+  .drawer-profile-name { font-size: 15px; font-weight: 500; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .drawer-profile-email { font-size: 12px; color: var(--text3); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .drawer-profile-actions { display: flex; gap: 8px; margin-top: 12px; }
+  .drawer-profile-btn { flex: 1; padding: 7px; border: 1px solid var(--border); background: none; color: var(--text2); font-size: 12px; border-radius: 6px; cursor: pointer; font-family: var(--sans); transition: all 0.15s; text-align: center; }
+  .drawer-profile-btn:hover { border-color: var(--green); color: var(--green); }
+  .drawer-profile-btn.danger:hover { border-color: var(--danger); color: var(--danger); }
+
+  /* ── Nav items ── */
+  .drawer-nav { flex: 1; padding: 8px 0; overflow-y: auto; }
+  .nav-drawer-item { display: flex; align-items: center; gap: 14px; padding: 13px 20px; color: var(--text2); font-size: 14px; cursor: pointer; transition: all 0.15s; background: none; border: none; font-family: var(--sans); width: 100%; text-align: left; border-radius: 0; }
+  .nav-drawer-item:hover { background: var(--bg3); color: var(--text); }
+  .nav-drawer-item.active { color: var(--green); background: #00cc4410; }
+  .drawer-icon-wrap { width: 32px; height: 32px; border-radius: 8px; background: var(--bg3); display: flex; align-items: center; justify-content: center; flex-shrink: 0; transition: background 0.15s; }
+  .nav-drawer-item.active .drawer-icon-wrap { background: #00cc4420; }
+  .nav-drawer-item:hover .drawer-icon-wrap { background: var(--bg2); }
+  .drawer-icon-wrap svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+  .nav-drawer-item.active .drawer-icon-wrap svg { stroke: var(--green); }
+  .drawer-item-label { flex: 1; }
+
+  /* ── Start show button in drawer ── */
+  .drawer-start-btn { margin: 12px 16px 8px; padding: 12px; background: var(--green); border: none; border-radius: 10px; color: #000; font-weight: 700; font-size: 14px; font-family: var(--sans); cursor: pointer; width: calc(100% - 32px); transition: background 0.15s; }
+  .drawer-start-btn:hover { background: var(--green-dark); }
+
+  .nav-drawer-divider { height: 1px; background: var(--border); margin: 6px 16px; }
+
+  /* ===== BEAT VALIDATION ===== */
+  .section-beat-counter { display: flex; align-items: center; gap: 8px; padding: 6px 0 10px; font-family: var(--mono); font-size: 12px; color: var(--text3); }
+  .beat-counter-bar { flex: 1; height: 4px; background: var(--bg3); border-radius: 2px; overflow: hidden; }
+  .beat-counter-fill { height: 100%; border-radius: 2px; background: var(--green); transition: width 0.2s, background 0.2s; }
+  .beat-counter-fill.error { background: var(--danger); }
+  .beat-counter-fill.warning { background: #ffaa00; }
+  .beat-counter-label { min-width: 70px; text-align: right; transition: color 0.2s; }
+  .beat-counter-label.error { color: var(--danger); }
+  .beat-counter-label.ok { color: var(--green); }
+  .lyric-block-row.beat-error { border-color: var(--danger) !important; }
+  .lyric-block-row.beat-error .block-chord-row { background: #ff000015; }
+  .beat-error-tag { font-size: 10px; color: var(--danger); font-family: var(--mono); padding: 3px 8px; background: #ff000015; border-top: 1px solid #ff000030; text-align: center; }
+
+  /* ===== BLOCK EDITOR ===== */
+  .block-editor { display: flex; flex-direction: column; gap: 8px; margin-top: 8px; }
+  .lyric-block-row { border: 1px solid var(--border); border-radius: 10px; overflow: hidden; background: var(--bg2); }
+  .block-chord-row { display: flex; align-items: center; gap: 6px; padding: 8px 10px; background: var(--bg3); border-bottom: 1px solid var(--border); flex-wrap: wrap; }
+  .block-chord-pill { display: flex; align-items: center; gap: 4px; background: #00cc4422; border: 1px solid #00cc4455; border-radius: 20px; padding: 3px 4px 3px 10px; }
+  .block-chord-name { font-family: var(--mono); font-size: 13px; color: var(--green); font-weight: 700; }
+  .block-chord-beats { font-family: var(--mono); font-size: 11px; color: var(--text2); background: var(--bg); border: 1px solid var(--border); border-radius: 4px; width: 36px; text-align: center; padding: 1px 4px; outline: none; }
+  .block-chord-beats:focus { border-color: var(--green); }
+  .block-chord-del { background: none; border: none; color: var(--text3); cursor: pointer; font-size: 12px; padding: 0 4px; line-height: 1; border-radius: 3px; }
+  .block-chord-del:hover { color: var(--danger); }
+  .block-add-chord { background: none; border: 1px dashed var(--border); color: var(--text3); font-size: 12px; padding: 3px 8px; border-radius: 20px; cursor: pointer; white-space: nowrap; }
+  .block-add-chord:hover { border-color: var(--green); color: var(--green); }
+  .block-chord-input { background: var(--bg); border: 1px solid var(--green); color: var(--text); font-family: var(--mono); font-size: 12px; padding: 3px 8px; border-radius: 20px; width: 70px; outline: none; }
+  .block-lyric-row { display: flex; align-items: center; padding: 0; border-bottom: 1px solid var(--border); }
+  .block-lyric-input { flex: 1; background: none; border: none; color: var(--text); font-family: var(--sans); font-size: 15px; padding: 9px 12px; outline: none; }
+  .block-lyric-input::placeholder { color: var(--text3); }
+  .block-row-actions { display: flex; align-items: center; padding-right: 8px; gap: 2px; flex-shrink: 0; }
+  .block-action-btn { background: none; border: none; cursor: pointer; font-size: 14px; color: var(--text3); padding: 4px 6px; border-radius: 4px; transition: color 0.15s; }
+  .block-action-btn:hover { color: var(--text); }
+  .block-action-btn.voice-active { color: #ff7744; }
+  .block-voice-row { display: flex; align-items: center; gap: 8px; padding: 7px 10px; background: #ff440010; border-bottom: 1px solid #ff440022; }
+  .block-voice-icon { color: #ff7744; font-size: 14px; flex-shrink: 0; }
+  .block-voice-input { flex: 1; background: none; border: none; color: #ff9966; font-family: var(--sans); font-size: 13px; outline: none; }
+  .block-voice-input::placeholder { color: #ff774455; }
+  .block-voice-beats { display: flex; align-items: center; gap: 4px; flex-shrink: 0; }
+  .block-voice-beats label { font-size: 11px; color: var(--text3); }
+  .block-voice-beats input { background: var(--bg3); border: 1px solid var(--border); color: var(--text2); font-family: var(--mono); font-size: 11px; padding: 2px 6px; border-radius: 4px; width: 40px; outline: none; text-align: center; }
+  .block-voice-beats input:focus { border-color: #ff7744; }
+  .block-voice-del { background: none; border: none; color: var(--text3); cursor: pointer; font-size: 13px; padding: 2px 6px; border-radius: 4px; }
+  .block-voice-del:hover { color: var(--danger); }
+  .block-add-row { display: flex; align-items: center; justify-content: center; gap: 8px; padding: 8px; border-top: 1px dashed var(--border); }
+  .block-add-row button { background: none; border: none; color: var(--text3); font-size: 12px; font-family: var(--sans); cursor: pointer; padding: 4px 10px; border-radius: 6px; transition: all 0.15s; }
+  .block-add-row button:hover { background: var(--bg3); color: var(--text); }
+
+  /* ===== SETLIST SCREEN ===== */
+  #screen-setlist { background: var(--bg); }
+  .setlist-body { display: flex; flex: 1; overflow: hidden; }
+  .setlist-sidebar { width: 280px; border-right: 1px solid var(--border); padding: 20px; overflow-y: auto; flex-shrink: 0; }
+  .sidebar-title { font-size: 11px; text-transform: uppercase; letter-spacing: 2px; color: var(--text3); margin-bottom: 12px; font-family: var(--mono); }
+  .song-list { display: flex; flex-direction: column; gap: 4px; }
+  .song-item { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 8px; cursor: pointer; border: 1px solid transparent; transition: all 0.15s; }
+  .song-item:hover { background: var(--bg3); }
+  .song-item.active { background: var(--bg3); border-color: var(--green); }
+  .song-num { font-family: var(--mono); font-size: 11px; color: var(--text3); min-width: 18px; }
+  .song-info { flex: 1; }
+  .song-name { font-size: 14px; font-weight: 500; }
+  .song-meta { font-size: 11px; color: var(--text2); margin-top: 2px; }
+  .song-drag { color: var(--text3); font-size: 12px; cursor: grab; }
+  .add-song-btn { width: 100%; margin-top: 12px; padding: 10px; border: 1px dashed var(--border); background: none; color: var(--text2); font-family: var(--sans); border-radius: 8px; cursor: pointer; font-size: 13px; transition: all 0.15s; }
+  .add-song-btn:hover { border-color: var(--green); color: var(--green); }
+  .open-song-btn { width: 100%; margin-top: 6px; padding: 10px; border: 1px dashed var(--border); background: none; color: var(--text3); font-family: var(--sans); border-radius: 8px; cursor: pointer; font-size: 13px; transition: all 0.15s; }
+  .open-song-btn:hover { border-color: var(--text2); color: var(--text2); }
+  .save-badge { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; font-family: var(--mono); color: var(--green); opacity: 0; transition: opacity 0.4s; }
+  .save-badge.show { opacity: 1; }
+  .song-item-actions { display: flex; gap: 4px; flex-shrink: 0; }
+  .song-action-btn { background: none; border: none; color: var(--text3); font-size: 13px; cursor: pointer; padding: 2px 5px; border-radius: 4px; transition: color 0.15s; }
+  .song-action-btn:hover { color: var(--text); }
+  .song-action-btn.export:hover { color: var(--green); }
+  .song-action-btn.delete:hover { color: var(--danger); }
+  .setlist-main { flex: 1; padding: 24px; overflow-y: auto; }
+  .song-editor { max-width: 680px; }
+  .editor-header { margin-bottom: 24px; }
+  .field-row { margin-bottom: 16px; }
+  .field-label { font-size: 11px; text-transform: uppercase; letter-spacing: 1.5px; color: var(--text3); font-family: var(--mono); margin-bottom: 6px; }
+  .field-input { width: 100%; background: var(--bg2); border: 1px solid var(--border); color: var(--text); font-family: var(--sans); font-size: 15px; padding: 10px 14px; border-radius: 8px; outline: none; transition: border-color 0.15s; }
+  .field-input:focus { border-color: var(--green); }
+  .field-row-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
+  .sections-editor { margin-top: 24px; }
+  .section-item { background: var(--bg2); border: 1px solid var(--border); border-radius: 10px; padding: 16px; margin-bottom: 10px; }
+  .section-head { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+  .section-head input { background: var(--bg3); border: 1px solid var(--border); color: var(--text); font-family: var(--mono); font-size: 13px; padding: 6px 10px; border-radius: 6px; width: 140px; outline: none; }
+  .section-head input:focus { border-color: var(--green); }
+  .section-bars { display: flex; align-items: center; gap: 8px; }
+  .section-bars label { font-size: 12px; color: var(--text2); }
+  .section-bars input[type=number] { background: var(--bg3); border: 1px solid var(--border); color: var(--text); font-family: var(--mono); font-size: 13px; padding: 6px 10px; border-radius: 6px; width: 60px; outline: none; text-align: center; }
+  .section-chords { display: flex; gap: 8px; flex-wrap: wrap; }
+  .chord-pill { background: var(--bg3); border: 1px solid var(--border); color: var(--text); font-family: var(--mono); font-size: 13px; padding: 5px 12px; border-radius: 20px; cursor: pointer; transition: all 0.15s; }
+  .chord-pill.active { background: var(--green); border-color: var(--green); color: #000; }
+  .chord-input { background: var(--bg3); border: 1px solid var(--border); color: var(--text); font-family: var(--mono); font-size: 13px; padding: 5px 12px; border-radius: 20px; width: 80px; outline: none; }
+  .chord-input:focus { border-color: var(--green); }
+  .lyrics-area { width: 100%; background: var(--bg3); border: 1px solid var(--border); color: var(--text); font-family: var(--sans); font-size: 14px; padding: 10px 14px; border-radius: 8px; outline: none; resize: vertical; min-height: 80px; line-height: 1.6; }
+  .lyrics-area:focus { border-color: var(--green); }
+  .del-btn { margin-left: auto; background: none; border: none; color: var(--text3); font-size: 16px; cursor: pointer; padding: 4px 8px; border-radius: 4px; transition: color 0.15s; }
+  .del-btn:hover { color: var(--danger); }
+
+  /* ===== LIVE SCREEN ===== */
+  #screen-live { background: #000; }
+  .live-header { padding: 16px 24px; border-bottom: 1px solid #1a1a1a; display: flex; align-items: center; justify-content: space-between; flex-shrink: 0; }
+  .live-chords { display: flex; align-items: center; gap: 16px; }
+  .chord-current { font-family: var(--mono); font-size: 42px; font-weight: 700; color: var(--text); line-height: 1; }
+  .chord-arrow { color: var(--green); font-size: 20px; }
+  .chord-next { font-family: var(--mono); font-size: 42px; font-weight: 400; color: var(--text3); line-height: 1; }
+  .live-song-info { text-align: right; }
+  .live-song-name { font-size: 13px; font-weight: 500; color: var(--text2); }
+  .live-bpm { font-family: var(--mono); font-size: 22px; color: var(--green); }
+  .live-body { flex: 1; display: flex; overflow: hidden; }
+  .live-lyrics { flex: 1; padding: 28px 32px; display: flex; flex-direction: column; gap: 6px; overflow: hidden; position: relative; }
+  .lyric-line { font-size: 28px; font-weight: 400; line-height: 1.5; transition: all 0.3s ease; }
+  .lyric-line.active { color: #ffffff; font-weight: 700; font-size: 32px; }
+  .lyric-line.past { color: #444; font-size: 22px; }
+  .lyric-line.upcoming { color: #888; font-size: 24px; }
+  .lyric-line.far { color: #555; font-size: 20px; }
+  .live-section-panel { width: 220px; background: var(--bg2); border-left: 1px solid #1a1a1a; display: flex; flex-direction: column; flex-shrink: 0; }
+  .section-countdown { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; background: var(--green); }
+  .countdown-num { font-family: var(--mono); font-size: 100px; font-weight: 700; color: #000; line-height: 1; }
+  .countdown-label { font-family: var(--mono); font-size: 11px; color: #004422; letter-spacing: 2px; margin-top: 4px; }
+  .section-info { padding: 16px; border-top: 1px solid #1a1a1a; }
+  .section-name-live { font-family: var(--mono); font-size: 13px; color: var(--text2); margin-bottom: 8px; }
+  .section-note { font-size: 12px; color: var(--text3); line-height: 1.5; }
+  .live-footer { padding: 12px 20px; border-top: 1px solid #1a1a1a; display: flex; align-items: center; gap: 16px; flex-shrink: 0; }
+  .play-btn { width: 44px; height: 44px; border-radius: 50%; background: var(--green); border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; flex-shrink: 0; transition: all 0.15s; }
+  .play-btn:hover { background: var(--green-dark); transform: scale(1.05); }
+  .play-btn svg { width: 18px; height: 18px; fill: #000; }
+  .stop-btn { width: 44px; height: 44px; border-radius: 50%; background: var(--bg3); border: 1px solid var(--border); cursor: pointer; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  .stop-btn svg { width: 14px; height: 14px; fill: var(--text); }
+  .footer-song { flex: 1; }
+  .footer-song-name { font-size: 14px; font-weight: 500; }
+  .footer-tempo { font-family: var(--mono); font-size: 12px; color: var(--text2); margin-top: 2px; }
+  .setlist-dots { display: flex; gap: 6px; align-items: center; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--bg3); border: 1px solid var(--border); cursor: pointer; transition: all 0.15s; }
+  .beat-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--bg3); border: 1px solid var(--border); transition: background 0.05s, transform 0.05s; }
+  .beat-dot.active { background: var(--green); border-color: var(--green); transform: scale(1.3); }
+  .beat-dot.accent { border-color: #005522; }
+  .dot.active { background: var(--green); border-color: var(--green); }
+  .dot.done { background: var(--text3); border-color: var(--text3); }
+  .next-song-btn { background: none; border: 1px solid var(--border); color: var(--text2); font-family: var(--mono); font-size: 11px; padding: 6px 12px; border-radius: 6px; cursor: pointer; transition: all 0.15s; }
+  .next-song-btn:hover { border-color: var(--green); color: var(--green); }
+
+  /* ===== SYNC SCREEN ===== */
+  #screen-sync { overflow-y: auto; }
+  .sync-body { flex: 1; padding: 32px; display: flex; gap: 24px; overflow-y: auto; }
+  .sync-col { flex: 1; }
+  .sync-card { background: var(--bg2); border: 1px solid var(--border); border-radius: 12px; padding: 24px; margin-bottom: 16px; }
+  .sync-card-title { font-family: var(--mono); font-size: 12px; text-transform: uppercase; letter-spacing: 1.5px; color: var(--text3); margin-bottom: 16px; }
+  .session-code { font-family: var(--mono); font-size: 48px; font-weight: 700; color: var(--green); letter-spacing: 8px; text-align: center; padding: 24px 0; border: 2px dashed var(--green-dim); border-radius: 10px; margin-bottom: 12px; }
+  .session-status { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--text2); }
+  .status-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--text3); }
+  .status-dot.connected { background: var(--green); animation: pulse 2s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+  .member-list { display: flex; flex-direction: column; gap: 8px; }
+  .member-item { display: flex; align-items: center; gap: 10px; padding: 10px 12px; background: var(--bg3); border-radius: 8px; }
+  .member-avatar { width: 32px; height: 32px; border-radius: 50%; background: var(--green-dim); border: 1px solid var(--green); display: flex; align-items: center; justify-content: center; font-family: var(--mono); font-size: 11px; color: var(--green); flex-shrink: 0; }
+  .member-name { flex: 1; font-size: 14px; }
+  .member-role { font-size: 11px; color: var(--text2); }
+  .member-ping { font-family: var(--mono); font-size: 11px; color: var(--green); }
+  .role-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .role-card { padding: 14px; border: 1px solid var(--border); border-radius: 8px; cursor: pointer; transition: all 0.15s; }
+  .role-card:hover { border-color: var(--green); }
+  .role-card.active { border-color: var(--green); background: var(--green-dim); }
+  .role-card-name { font-weight: 500; font-size: 14px; margin-bottom: 4px; }
+  .role-card-desc { font-size: 12px; color: var(--text2); line-height: 1.4; }
+  .join-input-row { display: flex; gap: 8px; }
+  .join-input-row input { flex: 1; background: var(--bg3); border: 1px solid var(--border); color: var(--text); font-family: var(--mono); font-size: 20px; padding: 10px 14px; border-radius: 8px; outline: none; text-transform: uppercase; letter-spacing: 4px; text-align: center; }
+  .join-input-row input:focus { border-color: var(--green); }
+
+  /* ===== CONFIG SCREEN ===== */
+  #screen-config { overflow-y: auto; }
+  .config-body { flex: 1; padding: 32px; max-width: 640px; overflow-y: auto; }
+  .config-section { margin-bottom: 32px; }
+  .config-section-title { font-family: var(--mono); font-size: 11px; text-transform: uppercase; letter-spacing: 2px; color: var(--text3); margin-bottom: 16px; padding-bottom: 8px; border-bottom: 1px solid var(--border); }
+  .config-row { display: flex; align-items: center; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid var(--border); }
+  .config-row:last-child { border-bottom: none; }
+  .config-label { font-size: 14px; }
+  .config-desc { font-size: 12px; color: var(--text2); margin-top: 2px; }
+  .toggle { width: 44px; height: 24px; border-radius: 12px; background: var(--bg3); border: 1px solid var(--border); position: relative; cursor: pointer; transition: all 0.2s; flex-shrink: 0; }
+  .toggle.on { background: var(--green); border-color: var(--green); }
+  .toggle::after { content: ''; position: absolute; width: 18px; height: 18px; border-radius: 50%; background: var(--text2); top: 2px; left: 2px; transition: all 0.2s; }
+  .toggle.on::after { left: 22px; background: #000; }
+  .config-select { background: var(--bg2); border: 1px solid var(--border); color: var(--text); font-family: var(--sans); font-size: 14px; padding: 6px 12px; border-radius: 6px; outline: none; cursor: pointer; }
+  .font-size-row { display: flex; align-items: center; gap: 12px; }
+  .font-size-row input[type=range] { flex: 1; accent-color: var(--green); }
+  .font-size-val { font-family: var(--mono); font-size: 13px; color: var(--green); min-width: 36px; }
+
+  /* ===== TOAST ===== */
+  .toast { position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%) translateY(20px); background: var(--bg3); border: 1px solid var(--green); color: var(--text); padding: 10px 20px; border-radius: 8px; font-size: 13px; opacity: 0; transition: all 0.3s; pointer-events: none; z-index: 100; }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+  /* ===== RESPONSIVE ===== */
+  @media (max-width: 700px) {
+    /* NAV */
+    .nav { padding: 10px 16px; }
+    .nav-tabs { display: none; }
+    .nav-actions { display: none !important; }
+    .hamburger { display: flex; }
+
+    /* SETLIST */
+    .setlist-body { flex-direction: column; }
+    .setlist-sidebar { width: 100%; border-right: none; border-bottom: 1px solid var(--border); padding: 10px 14px; flex-shrink: 0; max-height: 45vh; overflow-y: auto; }
+    .song-list { flex-direction: column; gap: 4px; }
+    .song-item { padding: 10px 12px; }
+    .setlist-main { padding: 14px; overflow-y: auto; flex: 1; }
+    .song-editor { max-width: 100%; }
+    .editor-header { margin-bottom: 12px; }
+    .field-row-3 { grid-template-columns: 1fr 1fr; gap: 8px; }
+    .field-input { font-size: 14px; padding: 8px 12px; }
+    .section-item { padding: 10px; }
+    .section-head { flex-wrap: wrap; gap: 6px; }
+    .section-head input { width: 100%; }
+    .section-bars { flex: 1; }
+    .block-chord-row { padding: 6px 8px; gap: 4px; }
+    .block-chord-name { font-size: 12px; }
+    .block-lyric-input { font-size: 14px; padding: 8px 10px; }
+    .block-voice-input { font-size: 12px; }
+    .save-badge { font-size: 10px; }
+
+    /* LIVE — portrait optimized */
+    .live-header { padding: 8px 12px; }
+    .chord-current { font-size: clamp(28px, 9vw, 42px); }
+    .chord-next { font-size: clamp(28px, 9vw, 42px); }
+    .chord-arrow { font-size: 14px; }
+    .live-bpm { font-size: 15px; }
+    .live-song-name { font-size: 11px; }
+    #syncIndicator { font-size: 10px; }
+    .live-body { flex-direction: column; }
+    .live-lyrics { flex: 1; padding: 12px 16px; gap: 2px; min-height: 0; overflow: hidden; }
+    .chord-row { height: 16px; }
+    .chord-token { font-size: 11px; }
+    .live-section-panel { width: 100%; border-left: none; border-top: 1px solid #1a1a1a; flex-direction: row; flex-shrink: 0; height: 140px; }
+    .section-countdown { flex: 0 0 110px; height: 140px; }
+    .countdown-num { font-size: 64px; }
+    .countdown-label { font-size: 9px; letter-spacing: 1px; }
+    .beat-counter { font-size: 11px; margin-top: 4px; }
+    .section-info { padding: 10px 12px; border-top: none; border-left: 1px solid #1a1a1a; display: flex; flex-direction: column; justify-content: center; gap: 4px; overflow: hidden; }
+    .section-name-live { font-size: 15px; margin-bottom: 0; }
+    .section-note { font-size: 12px; line-height: 1.4; }
+    .live-footer { padding: 8px 12px; gap: 6px; flex-wrap: nowrap; }
+    .play-btn { width: 40px; height: 40px; flex-shrink: 0; }
+    .stop-btn { width: 40px; height: 40px; flex-shrink: 0; }
+    .footer-song { min-width: 0; overflow: hidden; }
+    .footer-song-name { font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .footer-tempo { font-size: 10px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .next-song-btn { font-size: 10px; padding: 5px 8px; white-space: nowrap; flex-shrink: 0; }
+    .setlist-dots { gap: 4px; }
+    .dot { width: 7px; height: 7px; }
+
+    /* START COUNTDOWN */
+    .start-countdown-num { font-size: clamp(100px, 40vw, 160px) !important; }
+
+    /* MEMBER WAITING */
+    .member-waiting-title { font-size: 11px; }
+    .member-waiting-song { font-size: 16px; }
+
+    /* SYNC */
+    .sync-body { flex-direction: column; padding: 14px; gap: 0; }
+    .sync-card { padding: 14px; margin-bottom: 12px; }
+    .session-code { font-size: 28px; letter-spacing: 5px; padding: 16px 0; }
+    .role-grid { grid-template-columns: 1fr 1fr; }
+
+    /* CONFIG */
+    .config-body { padding: 14px; }
+    .config-row { flex-wrap: wrap; gap: 8px; padding: 10px 0; }
+    .font-size-row { width: 100%; }
+    .config-label { font-size: 13px; }
+    .config-desc { font-size: 11px; }
+  }
+
+  /* Safe area for notched phones */
+  @supports (padding: env(safe-area-inset-bottom)) {
+    .live-footer { padding-bottom: calc(8px + env(safe-area-inset-bottom)); }
+    .nav { padding-top: max(10px, env(safe-area-inset-top)); }
+  }
+
+
+  /* ===== HELP SCREEN ===== */
+  .help-body { flex: 1; overflow-y: auto; padding: 0; }
+  .help-hero { padding: 40px 32px 32px; border-bottom: 1px solid var(--border); background: var(--bg2); }
+  .help-hero-title { font-family: var(--mono); font-size: 28px; color: var(--green); margin-bottom: 8px; }
+  .help-hero-title span { color: var(--text2); }
+  .help-hero-sub { font-size: 15px; color: var(--text2); line-height: 1.7; max-width: 600px; }
+  .help-disclaimer { margin-top: 20px; padding: 16px; background: var(--bg3); border-radius: 10px; border-left: 3px solid var(--green); font-size: 13px; color: var(--text2); line-height: 1.7; }
+  .help-content { padding: 32px; max-width: 720px; }
+  .help-section { margin-bottom: 40px; }
+  .help-section-title { font-family: var(--mono); font-size: 11px; text-transform: uppercase; letter-spacing: 2px; color: var(--text3); margin-bottom: 16px; padding-bottom: 8px; border-bottom: 1px solid var(--border); }
+  .help-block { background: var(--bg2); border: 1px solid var(--border); border-radius: 10px; padding: 20px; margin-bottom: 12px; }
+  .help-block-title { font-size: 15px; font-weight: 500; margin-bottom: 8px; color: var(--text); display: flex; align-items: center; gap: 10px; }
+  .help-block-title .hicon { font-size: 20px; }
+  .help-block p { font-size: 14px; color: var(--text2); line-height: 1.7; margin-bottom: 8px; }
+  .help-block p:last-child { margin-bottom: 0; }
+  .help-code { font-family: var(--mono); background: var(--bg3); padding: 12px 16px; border-radius: 8px; font-size: 13px; color: var(--green); margin: 10px 0; line-height: 1.8; }
+  .help-warn { background: #ff440015; border: 1px solid #ff440033; border-radius: 8px; padding: 12px 16px; font-size: 13px; color: #ff8866; margin-top: 10px; line-height: 1.6; }
+  .help-tip { background: #00cc4415; border: 1px solid #00cc4433; border-radius: 8px; padding: 12px 16px; font-size: 13px; color: var(--green); margin-top: 10px; line-height: 1.6; }
+  .help-step { display: flex; gap: 14px; margin-bottom: 12px; }
+  .help-step-num { width: 26px; height: 26px; border-radius: 50%; background: var(--green); color: #000; font-family: var(--mono); font-size: 12px; font-weight: 700; display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-top: 2px; }
+  .help-step-text { font-size: 14px; color: var(--text2); line-height: 1.6; }
+  .help-step-text strong { color: var(--text); font-weight: 500; }
+  @media (max-width: 700px) {
+    .help-hero { padding: 24px 16px 20px; }
+    .help-content { padding: 20px 16px; }
+    .help-block { padding: 14px; }
+    .help-hero-title { font-size: 22px; }
+  }
+
+  /* ===== CHORD CHART LIVE ===== */
+  .lyric-block { display: flex; flex-direction: column; margin-bottom: 2px; }
+  .chord-row { display: flex; gap: 0; margin-bottom: 2px; height: 22px; position: relative; flex-shrink: 0; }
+  .chord-token { font-family: var(--mono); font-size: 14px; font-weight: 700; color: #444; position: absolute; transition: color 0.1s, transform 0.1s; white-space: nowrap; }
+  .chord-token.chord-active { color: var(--green); transform: scale(1.15); }
+  .chord-token.chord-next-up { color: #888; }
+  .lyric-block.active .chord-token { color: #888; }
+  .lyric-block.active .chord-token.chord-active { color: var(--green); transform: scale(1.2); }
+  .lyric-block.past .chord-row { opacity: 0.25; }
+  .lyric-block.past .chord-token { color: #444; }
+  .lyric-block.upcoming .chord-token { color: #666; }
+  .lyric-block.far .chord-token { color: #444; opacity: 0.4; }
+  @media (max-width: 700px) {
+    .chord-token { font-size: 12px; }
+    .chord-row { height: 18px; }
+  }
+
+  /* ===== AUTH SCREEN ===== */
+  .auth-screen { position: fixed; inset: 0; background: var(--bg); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 200; }
+  .auth-card { background: var(--bg2); border: 1px solid var(--border); border-radius: 16px; padding: 40px; max-width: 380px; width: 90%; text-align: center; }
+  .auth-logo { font-family: var(--mono); font-size: 28px; color: var(--green); margin-bottom: 8px; }
+  .auth-logo span { color: var(--text2); }
+  .auth-tagline { font-size: 14px; color: var(--text2); margin-bottom: 32px; line-height: 1.5; }
+  .auth-google-btn { display: flex; align-items: center; justify-content: center; gap: 12px; width: 100%; padding: 14px; background: #fff; border: none; border-radius: 10px; cursor: pointer; font-size: 15px; font-weight: 500; color: #333; font-family: var(--sans); transition: all 0.15s; margin-bottom: 16px; }
+  .auth-google-btn:hover { background: #f5f5f5; transform: translateY(-1px); }
+  .auth-google-icon { width: 20px; height: 20px; }
+  .auth-divider { display: flex; align-items: center; gap: 12px; margin: 16px 0; color: var(--text3); font-size: 12px; }
+  .auth-divider::before, .auth-divider::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+  .auth-skip { background: none; border: 1px solid var(--border); color: var(--text2); font-family: var(--sans); font-size: 13px; padding: 10px 20px; border-radius: 8px; cursor: pointer; transition: all 0.15s; width: 100%; }
+  .auth-skip:hover { border-color: var(--text2); color: var(--text); }
+  .auth-footer { margin-top: 24px; font-size: 11px; color: var(--text3); line-height: 1.6; }
+  .auth-footer a { color: var(--text2); text-decoration: none; }
+  .auth-user { display: flex; align-items: center; gap: 8px; }
+  .auth-avatar { width: 28px; height: 28px; border-radius: 50%; border: 1px solid var(--border); }
+  .auth-user-name { font-size: 13px; color: var(--text2); max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .auth-logout-btn { background: none; border: none; color: var(--text3); cursor: pointer; font-size: 12px; padding: 4px 8px; border-radius: 4px; transition: color 0.15s; }
+  .auth-logout-btn:hover { color: var(--danger); }
+
+  /* ===== UPDATE BANNER ===== */
+  .update-banner { position: fixed; bottom: 0; left: 0; right: 0; background: var(--green); color: #000; padding: 12px 20px; display: flex; align-items: center; justify-content: space-between; z-index: 300; font-size: 14px; font-weight: 500; transform: translateY(100%); transition: transform 0.3s; }
+  .update-banner.show { transform: translateY(0); }
+  .update-banner-btn { background: #000; color: var(--green); border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-weight: 700; font-size: 13px; font-family: var(--sans); }
+
+  /* ===== MEMBER WAITING OVERLAY ===== */
+  .member-waiting { position: absolute; inset: 0; background: rgba(0,0,0,0.92); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 49; opacity: 0; pointer-events: none; transition: opacity 0.3s; }
+  .member-waiting.visible { opacity: 1; pointer-events: all; }
+  .member-waiting-icon { width: 60px; height: 60px; border-radius: 50%; border: 2px solid var(--border); display: flex; align-items: center; justify-content: center; margin-bottom: 20px; }
+  .member-waiting-icon svg { width: 24px; height: 24px; fill: var(--text3); }
+  .member-waiting-title { font-family: var(--mono); font-size: 13px; color: var(--text2); letter-spacing: 3px; text-transform: uppercase; margin-bottom: 8px; }
+  .member-waiting-sub { font-size: 13px; color: var(--text3); }
+  .member-waiting-song { font-size: 18px; font-weight: 500; color: var(--text); margin-top: 16px; }
+  .member-waiting-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--green); margin-top: 20px; animation: pulse 1.5s infinite; }
+
+  /* ===== START COUNTDOWN OVERLAY ===== */
+  .start-countdown { position: absolute; inset: 0; background: #000; display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 50; opacity: 0; pointer-events: none; transition: opacity 0.15s; }
+  .start-countdown.visible { opacity: 1; pointer-events: all; }
+  .start-countdown-num { font-family: var(--mono); font-size: clamp(120px, 30vw, 220px); font-weight: 700; color: var(--green); line-height: 1; transition: transform 0.05s, color 0.05s; }
+  .start-countdown-num.pulse { transform: scale(1.18); color: #fff; }
+  .start-countdown-num { transition: transform 0.06s cubic-bezier(.2,1.5,.4,1), color 0.06s; }
+  .start-countdown-label { font-family: var(--mono); font-size: 14px; color: var(--text3); letter-spacing: 4px; margin-top: 16px; text-transform: uppercase; }
+  .start-countdown-song { font-size: 18px; color: var(--text2); margin-top: 32px; font-weight: 500; }
+  .start-countdown-bpm { font-family: var(--mono); font-size: 14px; color: var(--green); margin-top: 8px; }
+
+  /* ===== BEAT PULSE ===== */
+  .section-countdown { transition: background 0.06s ease; }
+  .section-countdown.beat-accent { background: #ff2222; }
+  .section-countdown.beat-sub { background: #00ee44; }
+  .beat-dots-container { display: flex; gap: 6px; justify-content: center; margin-top: 10px; flex-wrap: wrap; padding: 0 8px; }
+  .beat-dot { width: 10px; height: 10px; border-radius: 50%; background: rgba(0,0,0,0.2); border: 1px solid rgba(0,0,0,0.3); transition: background 0.05s, transform 0.05s; }
+  .beat-dot.active { background: rgba(0,0,0,0.75); border-color: rgba(0,0,0,0.5); transform: scale(1.35); }
+  .beat-dot.accent-dot { border: 2px solid rgba(0,0,0,0.5); }
+  .beat-counter { font-family: var(--mono); font-size: 13px; color: rgba(0,0,0,0.6); margin-top: 8px; letter-spacing: 1px; }
+  @media (max-width: 700px) { .beat-counter { font-size: 12px; margin-top: 4px; } }
+  @media (max-width: 700px) {
+    .beat-dots-container { margin-top: 6px; gap: 5px; }
+    .beat-dot { width: 9px; height: 9px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="toast" id="toast"></div>
+<div class="update-banner" id="updateBanner">
+  <span>Nueva versión disponible</span>
+  <button class="update-banner-btn" onclick="applyUpdate()">Actualizar ahora</button>
+</div>
+
+<!-- ===== AUTH SCREEN ===== -->
+<div class="auth-screen" id="authScreen">
+  <div class="auth-card">
+    <div class="auth-logo">Band<span>Prompt</span></div>
+    <div class="auth-tagline">Teleprompter sincronizado para bandas en vivo.<br>Iniciá sesión para guardar tu setlist en la nube.</div>
+    <button class="auth-google-btn" onclick="loginWithGoogle()">
+      <svg class="auth-google-icon" viewBox="0 0 24 24">
+        <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+        <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+        <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+        <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+      </svg>
+      Continuar con Google
+    </button>
+    <div class="auth-divider">o</div>
+    <button class="auth-skip" onclick="skipAuth()">Usar sin cuenta (solo local)</button>
+    <div class="auth-footer">
+      Al continuar aceptás que tus datos se guardan en Supabase.<br>
+      No compartimos tu información con terceros.
+    </div>
+  </div>
+</div>
+
+<!-- ===== SETLIST SCREEN ===== -->
+<div class="screen active" id="screen-setlist">
+  <div class="nav">
+    <div class="nav-logo">Band<span>Prompt</span></div>
+    <div class="nav-tabs">
+      <button class="nav-tab active" onclick="goTo('setlist')">Setlist</button>
+      <button class="nav-tab" onclick="goTo('sync')">Sincronizar</button>
+      <button class="nav-tab" onclick="goTo('config')">Configuración</button>
+      <button class="nav-tab" onclick="goTo('help')">Ayuda</button>
+    </div>
+    <div class="nav-actions">
+      <div class="auth-user" id="navUser" style="display:none">
+        <img class="auth-avatar" id="navAvatar" src="" alt=""/>
+        <span class="auth-user-name" id="navUserName"></span>
+        <button class="auth-logout-btn" onclick="logout()" title="Cerrar sesión">✕</button>
+      </div>
+      <button class="btn primary" onclick="startLive()">▶ Iniciar show</button>
+    </div>
+    <button class="hamburger" id="hamburger-setlist" onclick="toggleDrawer('setlist')" aria-label="Menú">
+      <span></span><span></span><span></span>
+    </button>
+  </div>
+  <div class="nav-drawer" id="drawer-setlist">
+    <div class="nav-drawer-backdrop" onclick="closeDrawer()"></div>
+    <div class="nav-drawer-inner">
+      <div class="drawer-profile">
+        <div class="drawer-profile-avatar-placeholder" id="drawerAvatarWrap-setlist"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></div>
+        <img class="drawer-profile-avatar" id="drawerAvatar-setlist" src="" style="display:none;width:48px;height:48px;border-radius:50%;border:2px solid var(--border);margin-bottom:10px;object-fit:cover;" alt=""/>
+        <div class="drawer-profile-name" id="drawerName-setlist">Sin cuenta</div>
+        <div class="drawer-profile-email" id="drawerEmail-setlist">Usá Google para guardar en la nube</div>
+        <div class="drawer-profile-actions">
+          <button class="drawer-profile-btn" id="drawerLoginBtn-setlist" onclick="closeDrawer();loginWithGoogle()">Iniciar sesión</button>
+          <button class="drawer-profile-btn danger" id="drawerLogoutBtn-setlist" style="display:none" onclick="closeDrawer();logout()">Cerrar sesión</button>
+        </div>
+      </div>
+      <div class="nav-drawer-divider"></div>
+      <div class="drawer-nav">
+      <button class="nav-drawer-item active" onclick="closeDrawer();goTo('setlist')">
+        <div class="drawer-icon-wrap"><svg viewBox="0 0 24 24"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg></div>
+        <span class="drawer-item-label">Setlist</span>
+      </button>
+      <button class="nav-drawer-item" onclick="closeDrawer();goTo('sync')">
+        <div class="drawer-icon-wrap"><svg viewBox="0 0 24 24"><path d="M21 2v6h-6"/><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M3 22v-6h6"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/></svg></div>
+        <span class="drawer-item-label">Sincronizar</span>
+      </button>
+      <button class="nav-drawer-item" onclick="closeDrawer();goTo('config')">
+        <div class="drawer-icon-wrap"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></div>
+        <span class="drawer-item-label">Configuración</span>
+      </button>
+      <button class="nav-drawer-item" onclick="closeDrawer();goTo('help')">
+        <div class="drawer-icon-wrap"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></div>
+        <span class="drawer-item-label">Ayuda</span>
+      </button>
+      </div>
+      <div class="nav-drawer-divider"></div>
+      <button class="drawer-start-btn" onclick="closeDrawer();startLive()">&#9654; Iniciar show</button>
+    </div>
+  </div>
+  <div class="setlist-body">
+    <div class="setlist-sidebar">
+      <div class="sidebar-title">Setlist</div>
+      <div class="song-list" id="songList"></div>
+      <button class="add-song-btn" onclick="addSong()">+ Agregar tema</button>
+      <button class="open-song-btn" onclick="document.getElementById('fileInput').click()">↑ Abrir canción</button>
+      <input type="file" id="fileInput" accept=".json" style="display:none" onchange="openSongFile(this)"/>
+    </div>
+    <div class="setlist-main">
+      <div class="song-editor" id="songEditor"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== LIVE SCREEN ===== -->
+<div class="screen" id="screen-live" style="position:relative;">
+  <div class="start-countdown" id="startCountdown">
+    <div class="start-countdown-num" id="startCountdownNum">3</div>
+    <div class="start-countdown-label">comenzando</div>
+    <div class="start-countdown-song" id="startCountdownSong"></div>
+    <div class="start-countdown-bpm" id="startCountdownBpm"></div>
+  </div>
+  <div class="live-header">
+    <div class="live-chords">
+      <div class="chord-current" id="liveChordCurrent">—</div>
+      <div class="chord-arrow">▶</div>
+      <div class="chord-next" id="liveChordNext">—</div>
+    </div>
+    <div class="live-song-info">
+      <div class="live-song-name" id="liveSongName">—</div>
+      <div class="live-bpm" id="liveBpm">— bpm</div>
+    </div>
+    <div id="syncIndicator" style="display:none;align-items:center;gap:6px;font-family:var(--mono);font-size:11px;color:var(--text3);">
+      <div style="width:7px;height:7px;border-radius:50%;background:var(--green);animation:pulse 2s infinite;"></div>
+      <span id="syncIndicatorLabel">SYNC</span>
+    </div>
+  </div>
+  <div class="member-waiting" id="memberWaiting" onclick="memberTapUnlock()">
+    <div class="member-waiting-icon">
+      <svg viewBox="0 0 24 24"><polygon points="5,3 19,12 5,21"/></svg>
+    </div>
+    <div class="member-waiting-title" id="memberWaitingTitle">Tocá para activar audio</div>
+    <div class="member-waiting-sub">El show comenzará pronto</div>
+    <div class="member-waiting-song" id="memberWaitingSong"></div>
+    <div class="member-waiting-dot"></div>
+  </div>
+  <div class="live-body">
+    <div class="live-lyrics" id="liveLyrics"></div>
+    <div class="live-section-panel">
+      <div class="section-countdown" id="sectionCountdown">
+        <div class="countdown-num" id="countdownNum">4</div>
+        <div class="countdown-label">COMPASES</div>
+        <div class="beat-dots-container" id="beatDotsRow"></div>
+        <div class="beat-counter" id="beatCounter">4 / 1</div>
+      </div>
+      <div class="section-info">
+        <div class="section-name-live" id="sectionNameLive">—</div>
+        <div class="section-note" id="sectionNote"></div>
+      </div>
+    </div>
+  </div>
+  <div class="live-footer">
+    <button class="play-btn" id="playBtn" onclick="togglePlay()" title="Solo director">
+      <svg viewBox="0 0 24 24"><polygon points="5,3 19,12 5,21"/></svg>
+    </button>
+    <button class="stop-btn" onclick="stopShow()" id="stopBtn" title="Solo director">
+      <svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16"/></svg>
+    </button>
+    <div class="footer-song">
+      <div class="footer-song-name" id="footerSongName">—</div>
+      <div class="footer-tempo" id="footerTempo">—</div>
+    </div>
+    <div class="setlist-dots" id="setlistDots"></div>
+    <button class="next-song-btn" onclick="nextSong()">siguiente ▶</button>
+  </div>
+</div>
+
+<!-- ===== SYNC SCREEN ===== -->
+<div class="screen" id="screen-sync">
+  <div class="nav">
+    <div class="nav-logo">Band<span>Prompt</span></div>
+    <div class="nav-tabs">
+      <button class="nav-tab" onclick="goTo('setlist')">Setlist</button>
+      <button class="nav-tab active" onclick="goTo('sync')">Sincronizar</button>
+      <button class="nav-tab" onclick="goTo('config')">Configuración</button>
+    </div>
+    <div class="nav-actions">
+      <button class="btn primary" onclick="startLive()">▶ Iniciar show</button>
+    </div>
+    <button class="hamburger" id="hamburger-sync" onclick="toggleDrawer('sync')" aria-label="Menú">
+      <span></span><span></span><span></span>
+    </button>
+  </div>
+  <div class="nav-drawer" id="drawer-sync">
+    <div class="nav-drawer-backdrop" onclick="closeDrawer()"></div>
+    <div class="nav-drawer-inner">
+      <div class="drawer-profile">
+        <div class="drawer-profile-avatar-placeholder" id="drawerAvatarWrap-sync"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></div>
+        <img class="drawer-profile-avatar" id="drawerAvatar-sync" src="" style="display:none;width:48px;height:48px;border-radius:50%;border:2px solid var(--border);margin-bottom:10px;object-fit:cover;" alt=""/>
+        <div class="drawer-profile-name" id="drawerName-sync">Sin cuenta</div>
+        <div class="drawer-profile-email" id="drawerEmail-sync">Usá Google para guardar en la nube</div>
+        <div class="drawer-profile-actions">
+          <button class="drawer-profile-btn" id="drawerLoginBtn-sync" onclick="closeDrawer();loginWithGoogle()">Iniciar sesión</button>
+          <button class="drawer-profile-btn danger" id="drawerLogoutBtn-sync" style="display:none" onclick="closeDrawer();logout()">Cerrar sesión</button>
+        </div>
+      </div>
+      <div class="nav-drawer-divider"></div>
+      <div class="drawer-nav">
+      <button class="nav-drawer-item" onclick="closeDrawer();goTo('setlist')">
+        <div class="drawer-icon-wrap"><svg viewBox="0 0 24 24"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg></div>
+        <span class="drawer-item-label">Setlist</span>
+      </button>
+      <button class="nav-drawer-item active" onclick="closeDrawer();goTo('sync')">
+        <div class="drawer-icon-wrap"><svg viewBox="0 0 24 24"><path d="M21 2v6h-6"/><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M3 22v-6h6"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/></svg></div>
+        <span class="drawer-item-label">Sincronizar</span>
+      </button>
+      <button class="nav-drawer-item" onclick="closeDrawer();goTo('config')">
+        <div class="drawer-icon-wrap"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></div>
+        <span class="drawer-item-label">Configuración</span>
+      </button>
+      <button class="nav-drawer-item" onclick="closeDrawer();goTo('help')">
+        <div class="drawer-icon-wrap"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></div>
+        <span class="drawer-item-label">Ayuda</span>
+      </button>
+      </div>
+      <div class="nav-drawer-divider"></div>
+      <button class="drawer-start-btn" onclick="closeDrawer();startLive()">&#9654; Iniciar show</button>
+    </div>
+  </div>
+  <div class="sync-body">
+    <div class="sync-col">
+      <div class="sync-card">
+        <div class="sync-card-title">Tu rol</div>
+        <div class="role-grid">
+          <div class="role-card active" id="roleDirector" onclick="setRole('director')">
+            <div class="role-card-name">Director</div>
+            <div class="role-card-desc">Controla la sesión. Play, stop y navegación.</div>
+          </div>
+          <div class="role-card" id="roleMember" onclick="setRole('member')">
+            <div class="role-card-name">Miembro</div>
+            <div class="role-card-desc">Recibe el estado en tiempo real de la banda.</div>
+          </div>
+        </div>
+      </div>
+      <div class="sync-card" id="directorCard">
+        <div class="sync-card-title">Sesión activa</div>
+        <div class="session-code" id="sessionCode">—</div>
+        <div class="session-status">
+          <div class="status-dot connected" id="statusDot"></div>
+          <span id="statusText">Esperando conexiones...</span>
+        </div>
+        <div style="margin-top:16px; display:flex; gap:8px;">
+          <button class="btn" onclick="generateCode()">Nuevo código</button>
+          <button class="btn" onclick="copyCode()">Copiar</button>
+        </div>
+      </div>
+      <div class="sync-card" id="memberCard" style="display:none;">
+        <div class="sync-card-title">Unirse a sesión</div>
+        <div class="join-input-row">
+          <input type="text" id="joinCodeInput" maxlength="6" placeholder="CÓDIGO" />
+          <button class="btn primary" onclick="joinSession()">Unirse</button>
+        </div>
+      </div>
+    </div>
+    <div class="sync-col">
+      <div class="sync-card">
+        <div class="sync-card-title">Músicos conectados</div>
+        <div class="member-list" id="memberList"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== CONFIG SCREEN ===== -->
+<div class="screen" id="screen-config">
+  <div class="nav">
+    <div class="nav-logo">Band<span>Prompt</span></div>
+    <div class="nav-tabs">
+      <button class="nav-tab" onclick="goTo('setlist')">Setlist</button>
+      <button class="nav-tab" onclick="goTo('sync')">Sincronizar</button>
+      <button class="nav-tab active" onclick="goTo('config')">Configuración</button>
+    </div>
+    <div class="nav-actions">
+      <button class="btn primary" onclick="startLive()">▶ Iniciar show</button>
+    </div>
+    <button class="hamburger" id="hamburger-config" onclick="toggleDrawer('config')" aria-label="Menú">
+      <span></span><span></span><span></span>
+    </button>
+  </div>
+  <div class="nav-drawer" id="drawer-config">
+    <div class="nav-drawer-backdrop" onclick="closeDrawer()"></div>
+    <div class="nav-drawer-inner">
+      <div class="drawer-profile">
+        <div class="drawer-profile-avatar-placeholder" id="drawerAvatarWrap-config"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></div>
+        <img class="drawer-profile-avatar" id="drawerAvatar-config" src="" style="display:none;width:48px;height:48px;border-radius:50%;border:2px solid var(--border);margin-bottom:10px;object-fit:cover;" alt=""/>
+        <div class="drawer-profile-name" id="drawerName-config">Sin cuenta</div>
+        <div class="drawer-profile-email" id="drawerEmail-config">Usá Google para guardar en la nube</div>
+        <div class="drawer-profile-actions">
+          <button class="drawer-profile-btn" id="drawerLoginBtn-config" onclick="closeDrawer();loginWithGoogle()">Iniciar sesión</button>
+          <button class="drawer-profile-btn danger" id="drawerLogoutBtn-config" style="display:none" onclick="closeDrawer();logout()">Cerrar sesión</button>
+        </div>
+      </div>
+      <div class="nav-drawer-divider"></div>
+      <div class="drawer-nav">
+      <button class="nav-drawer-item" onclick="closeDrawer();goTo('setlist')">
+        <div class="drawer-icon-wrap"><svg viewBox="0 0 24 24"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg></div>
+        <span class="drawer-item-label">Setlist</span>
+      </button>
+      <button class="nav-drawer-item" onclick="closeDrawer();goTo('sync')">
+        <div class="drawer-icon-wrap"><svg viewBox="0 0 24 24"><path d="M21 2v6h-6"/><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M3 22v-6h6"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/></svg></div>
+        <span class="drawer-item-label">Sincronizar</span>
+      </button>
+      <button class="nav-drawer-item active" onclick="closeDrawer();goTo('config')">
+        <div class="drawer-icon-wrap"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></div>
+        <span class="drawer-item-label">Configuración</span>
+      </button>
+      <button class="nav-drawer-item" onclick="closeDrawer();goTo('help')">
+        <div class="drawer-icon-wrap"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></div>
+        <span class="drawer-item-label">Ayuda</span>
+      </button>
+      </div>
+      <div class="nav-drawer-divider"></div>
+      <button class="drawer-start-btn" onclick="closeDrawer();startLive()">&#9654; Iniciar show</button>
+    </div>
+  </div>
+  <div class="config-body">
+    <div class="config-section">
+      <div class="config-section-title">Visualización</div>
+      <div class="config-row">
+        <div><div class="config-label">Tamaño de letra (lyrics)</div><div class="config-desc">Ajuste según la distancia al dispositivo</div></div>
+        <div class="font-size-row">
+          <input type="range" min="16" max="48" value="28" id="fontSizeSlider" oninput="updateFontSize(this.value)"/>
+          <span class="font-size-val" id="fontSizeVal">28px</span>
+        </div>
+      </div>
+      <div class="config-row">
+        <div><div class="config-label">Scroll automático</div><div class="config-desc">Avanza la letra con el metrónomo</div></div>
+        <div class="toggle on" onclick="toggleConfig(this)"></div>
+      </div>
+      <div class="config-row">
+        <div><div class="config-label">Mostrar acordes en letra</div><div class="config-desc">Resalta el acorde sobre la sílaba</div></div>
+        <div class="toggle on" onclick="toggleConfig(this)"></div>
+      </div>
+      <div class="config-row">
+        <div><div class="config-label">Modo nocturno extremo</div><div class="config-desc">Fondo 100% negro, ideal en escenario</div></div>
+        <div class="toggle on" onclick="toggleConfig(this)"></div>
+      </div>
+    </div>
+    <div class="config-section">
+      <div class="config-section-title">Metrónomo</div>
+      <div class="config-row">
+        <div><div class="config-label">Flash visual en el beat</div><div class="config-desc">Barra verde en cada tiempo 1</div></div>
+        <div class="toggle on" id="toggleMetro" onclick="toggleMetro(this)"></div>
+      </div>
+      <div class="config-row">
+        <div><div class="config-label">Click de audio</div><div class="config-desc">Beep audible por auricular (IEM)</div></div>
+        <div class="toggle on" id="toggleMetroSound" onclick="toggleMetroSound(this)"></div>
+      </div>
+      <div class="config-row">
+        <div><div class="config-label">Guías de voz</div><div class="config-desc">"Viene coro en 3... 2... 1..." — desactivado automáticamente si BPM &gt; 130</div></div>
+        <div style="display:flex;align-items:center;gap:10px;">
+          <button class="btn" style="font-size:12px;padding:5px 12px;" onclick="testSpeak()">▶ Probar</button>
+          <div class="toggle on" id="toggleSpeech" onclick="toggleSpeech(this)"></div>
+        </div>
+      </div>
+      <div class="config-row">
+        <div><div class="config-label">Volumen del click</div></div>
+        <div class="font-size-row">
+          <input type="range" min="0" max="100" value="70" id="metroVolSlider" oninput="updateMetroVol(this.value)" step="1"/>
+          <span class="font-size-val" id="metroVolVal">70%</span>
+        </div>
+      </div>
+      <div class="config-row">
+        <div><div class="config-label">Compás por defecto</div></div>
+        <select class="config-select">
+          <option>4/4</option><option>3/4</option><option>6/8</option><option>5/4</option><option>7/8</option>
+        </select>
+      </div>
+    </div>
+    <div class="config-section">
+      <div class="config-section-title">Banda</div>
+      <div class="config-row">
+        <div><div class="config-label">Nombre de la banda</div></div>
+        <input class="field-input" style="width:200px" placeholder="Tu banda" id="bandName"/>
+      </div>
+      <div class="config-row">
+        <div><div class="config-label">Tu instrumento</div></div>
+        <select class="config-select">
+          <option>Guitarra</option><option>Bajo</option><option>Batería</option><option>Teclado</option><option>Voz</option><option>Otro</option>
+        </select>
+      </div>
+    </div>
+    <div class="config-section">
+      <div class="config-section-title">Datos</div>
+      <div class="config-row" style="border-bottom:1px solid var(--border);padding-bottom:16px;margin-bottom:8px;">
+        <div>
+          <div class="config-label">☕ Invitame una cerveza</div>
+          <div class="config-desc">Si la app te sirve, podés apoyar el proyecto</div>
+        </div>
+        <button class="btn" style="background:#FF5E5B;border-color:#FF5E5B;color:#fff;font-weight:500;" onclick="window.open('https://ko-fi.com/jnarese','_blank')">Ko-fi ♥</button>
+      </div>
+      <div class="config-row">
+        <div><div class="config-label">Exportar setlist completo</div><div class="config-desc">JSON con todos los temas para compartir con la banda</div></div>
+        <button class="btn" onclick="exportData()">↓ Exportar</button>
+      </div>
+      <div class="config-row">
+        <div><div class="config-label">Importar setlist</div><div class="config-desc">Cargá un JSON exportado previamente</div></div>
+        <button class="btn" onclick="importData()">↑ Importar</button>
+      </div>
+      <div class="config-row">
+        <div><div class="config-label">Compartir con la banda</div><div class="config-desc">Enviá el setlist por WhatsApp / correo</div></div>
+        <button class="btn" onclick="shareSetlist()">Compartir</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ===== DATA =====
+let songs = [
+  {
+    id: 1, name: "Un día como hoy", key: "Gm", bpm: 90, timeSignature: "4/4",
+    sections: [
+      { name: "Intro", bars: 8, warnBars: 2,
+        blocks: [
+          { chords: [{chord:"Gm",beats:4},{chord:"Cm7",beats:4}], lyric: "", voice: "Guitarra limpia, entrada suave", voiceBars: 2 }
+        ]},
+      { name: "Estrofa 1", bars: 16, warnBars: 0,
+        blocks: [
+          { chords: [{chord:"Gm",beats:4},{chord:"Cm7",beats:4}], lyric: "Caminando bajo la lluvia", voice: "", voiceBars: 0 },
+          { chords: [{chord:"Gm",beats:4},{chord:"D",beats:4}], lyric: "sin saber adónde ir", voice: "", voiceBars: 0 },
+          { chords: [{chord:"Eb",beats:4},{chord:"Cm7",beats:4}], lyric: "buscando entre las sombras", voice: "", voiceBars: 0 },
+          { chords: [{chord:"Gm",beats:2},{chord:"D",beats:2}], lyric: "lo que nunca pude ver", voice: "", voiceBars: 0 }
+        ]},
+      { name: "Pre-Coro", bars: 8, warnBars: 2,
+        blocks: [
+          { chords: [{chord:"Eb",beats:4},{chord:"D",beats:4}], lyric: "Y el tiempo pasa lento", voice: "", voiceBars: 0 },
+          { chords: [{chord:"Gm",beats:8}], lyric: "cuando estás lejos de aquí", voice: "¡Viene el coro! Subir volumen", voiceBars: 2 }
+        ]},
+      { name: "Coro", bars: 16, warnBars: 0,
+        blocks: [
+          { chords: [{chord:"Gm",beats:4},{chord:"Cm7",beats:4}], lyric: "Un día como hoy", voice: "", voiceBars: 0 },
+          { chords: [{chord:"Eb",beats:4},{chord:"Bb",beats:4}], lyric: "todo cambia sin avisar", voice: "", voiceBars: 0 },
+          { chords: [{chord:"Gm",beats:4},{chord:"Cm7",beats:4}], lyric: "y lo que tanto amé", voice: "", voiceBars: 0 },
+          { chords: [{chord:"Eb",beats:4},{chord:"D",beats:4}], lyric: "se perdió en el viento al pasar", voice: "", voiceBars: 0 }
+        ]},
+      { name: "Solo", bars: 8, warnBars: 0,
+        blocks: [
+          { chords: [{chord:"Gm",beats:4},{chord:"Cm7",beats:4}], lyric: "", voice: "Solo de guitarra. Corte en compás 8", voiceBars: 2 }
+        ]},
+      { name: "Final", bars: 4, warnBars: 0,
+        blocks: [
+          { chords: [{chord:"Gm",beats:4}], lyric: "...", voice: "Cierre lento, diminuendo", voiceBars: 0 }
+        ]}
+    ]
+  },
+  {
+    id: 2, name: "Fuego en la ciudad", key: "Am", bpm: 124, timeSignature: "4/4",
+    sections: [
+      { name: "Intro", bars: 4, warnBars: 2,
+        blocks: [
+          { chords: [{chord:"Am",beats:4},{chord:"F",beats:4}], lyric: "", voice: "Entra estrofa, riff distorsionado", voiceBars: 2 }
+        ]},
+      { name: "Estrofa 1", bars: 16, warnBars: 0,
+        blocks: [
+          { chords: [{chord:"Am",beats:4},{chord:"F",beats:4}], lyric: "Las luces de neón", voice: "", voiceBars: 0 },
+          { chords: [{chord:"C",beats:4},{chord:"G",beats:4}], lyric: "iluminan tu camino", voice: "", voiceBars: 0 },
+          { chords: [{chord:"Am",beats:4},{chord:"F",beats:4}], lyric: "y el asfalto caliente", voice: "", voiceBars: 0 },
+          { chords: [{chord:"C",beats:4},{chord:"G",beats:4}], lyric: "te llama otra vez", voice: "¡Viene el coro! Todo el mundo entra", voiceBars: 2 }
+        ]},
+      { name: "Coro", bars: 16, warnBars: 0,
+        blocks: [
+          { chords: [{chord:"F",beats:4},{chord:"C",beats:4}], lyric: "Fuego en la ciudad", voice: "", voiceBars: 0 },
+          { chords: [{chord:"G",beats:4},{chord:"Am",beats:4}], lyric: "nadie puede parar", voice: "", voiceBars: 0 },
+          { chords: [{chord:"F",beats:4},{chord:"C",beats:4}], lyric: "esta noche es para siempre", voice: "", voiceBars: 0 },
+          { chords: [{chord:"G",beats:4},{chord:"Am",beats:4}], lyric: "no nos vamos a callar", voice: "", voiceBars: 0 }
+        ]}
+    ]
+  },
+  {
+    id: 3, name: "Balada sin nombre", key: "C", bpm: 68, timeSignature: "4/4",
+    sections: [
+      { name: "Intro", bars: 8, warnBars: 2,
+        blocks: [
+          { chords: [{chord:"C",beats:4},{chord:"Am",beats:4}], lyric: "", voice: "Piano solo, entrada suave", voiceBars: 2 }
+        ]},
+      { name: "Estrofa", bars: 16, warnBars: 0,
+        blocks: [
+          { chords: [{chord:"C",beats:4},{chord:"Am",beats:4}], lyric: "Hay palabras que no dije", voice: "", voiceBars: 0 },
+          { chords: [{chord:"F",beats:4},{chord:"G",beats:4}], lyric: "que se quedaron aquí", voice: "", voiceBars: 0 },
+          { chords: [{chord:"C",beats:4},{chord:"Am",beats:4}], lyric: "guardadas como secretos", voice: "", voiceBars: 0 },
+          { chords: [{chord:"F",beats:4},{chord:"G",beats:4}], lyric: "que no supe compartir", voice: "Viene el coro", voiceBars: 2 }
+        ]},
+      { name: "Coro", bars: 16, warnBars: 0,
+        blocks: [
+          { chords: [{chord:"F",beats:4},{chord:"G",beats:4}], lyric: "Y me quedo sin palabras", voice: "", voiceBars: 0 },
+          { chords: [{chord:"Am",beats:4},{chord:"C",beats:4}], lyric: "cuando estás cerca de mí", voice: "", voiceBars: 0 },
+          { chords: [{chord:"F",beats:4},{chord:"G",beats:4}], lyric: "balada sin nombre", voice: "", voiceBars: 0 },
+          { chords: [{chord:"Am",beats:4},{chord:"C",beats:4}], lyric: "escrita solo para ti", voice: "", voiceBars: 0 }
+        ]}
+    ]
+  }
+];
+
+let currentSongId = 1;
+let currentSectionIdx = 0;
+let currentBarInSection = 1;
+let isPlaying = false;
+let beatInterval = null;
+let beatCount = 0;
+let role = 'director';
+let metroEnabled = true;
+let metroSound = true;
+let metroVolume = 0.7;
+let lyricFontSize = 28;
+
+// ===== WEB AUDIO METRONOME =====
+let audioCtx = null;
+let nextBeatTime = 0;
+let scheduleAheadTime = 0.1;
+let lookahead = 25.0;
+let schedulerTimer = null;
+let scheduledBeat = 0;
+let sectionStartScheduledBeat = 0; // scheduledBeat value when current section began
+
+// ===== SPEECH ENGINE =====
+let speechEnabled = true;
+let spokenCountdowns = new Set(); // track what we've already spoken this section
+
+let cachedVoice = null;
+
+function loadVoice() {
+  return new Promise(resolve => {
+    const tryGet = () => {
+      const voices = window.speechSynthesis.getVoices();
+      if (voices.length) {
+        // Prefer es-AR, then es-ES, then any es, then first available
+        cachedVoice = voices.find(v => v.lang === 'es-AR')
+          || voices.find(v => v.lang === 'es-ES')
+          || voices.find(v => v.lang.startsWith('es'))
+          || voices[0];
+        resolve(cachedVoice);
+      }
+    };
+    tryGet();
+    if (!cachedVoice) {
+      window.speechSynthesis.onvoiceschanged = () => { tryGet(); resolve(cachedVoice); };
+      setTimeout(() => resolve(null), 2000); // fallback timeout
+    }
+  });
+}
+
+function speak(text) {
+  if (!speechEnabled) return;
+  try {
+    const utt = new SpeechSynthesisUtterance(text);
+    utt.lang = 'es-AR';
+    utt.rate = 1.0;
+    utt.pitch = 1.0;
+    utt.volume = 1.0;
+    if (cachedVoice) utt.voice = cachedVoice;
+    window.speechSynthesis.speak(utt);
+  } catch(e) {}
+}
+
+function speakNow(text) {
+  if (!speechEnabled) return;
+  try {
+    window.speechSynthesis.cancel();
+    setTimeout(() => speak(text), 50);
+  } catch(e) {}
+}
+
+// Schedule speech at a precise Web Audio clock time
+function speakAt(text, audioTime, cancelPrev) {
+  if (!speechEnabled) return;
+  const ctx = getAudioCtx();
+  // Fire slightly before the beat so speech starts on time (speech has ~80ms onset latency)
+  const earlyMs = 80;
+  const delayMs = Math.max(0, (audioTime - ctx.currentTime) * 1000 - earlyMs);
+  setTimeout(() => {
+    if (!isPlaying) return;
+    window.speechSynthesis.cancel();
+    const utt = new SpeechSynthesisUtterance(text);
+    utt.lang = 'es-AR';
+    utt.rate = 1.1;
+    utt.volume = 1.0;
+    if (cachedVoice) utt.voice = cachedVoice;
+    window.speechSynthesis.speak(utt);
+  }, delayMs);
+}
+
+function testSpeak() {
+  loadVoice().then(() => {
+    speak('Guías de voz activadas. Viene coro en 2... 1');
+    showToast('🔊 Probando voz...');
+  });
+}
+
+
+function resetSpokenCountdowns() {
+  spokenCountdowns.clear();
+}
+
+function getAudioCtx() {
+  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  if (audioCtx.state === 'suspended') audioCtx.resume();
+  return audioCtx;
+}
+
+function playCountdownClick(time, isAccent) {
+  // Louder, wood-block style click for countdown
+  const ctx = getAudioCtx();
+  const osc = ctx.createOscillator();
+  const gain = ctx.createGain();
+  osc.connect(gain);
+  gain.connect(ctx.destination);
+  osc.frequency.value = isAccent ? 1600 : 1200;
+  osc.type = 'square';
+  gain.gain.setValueAtTime(0, time);
+  gain.gain.linearRampToValueAtTime(0.6, time + 0.002);
+  gain.gain.exponentialRampToValueAtTime(0.001, time + 0.06);
+  osc.start(time);
+  osc.stop(time + 0.08);
+}
+
+function playClick(time, isAccent) {
+  if (!metroSound) return;
+  const ctx = getAudioCtx();
+  const osc = ctx.createOscillator();
+  const gain = ctx.createGain();
+  osc.connect(gain);
+  gain.connect(ctx.destination);
+  osc.frequency.value = isAccent ? 1200 : 800;
+  osc.type = 'sine';
+  gain.gain.setValueAtTime(0, time);
+  gain.gain.linearRampToValueAtTime(metroVolume, time + 0.002);
+  gain.gain.exponentialRampToValueAtTime(0.001, time + (isAccent ? 0.08 : 0.05));
+  osc.start(time);
+  osc.stop(time + 0.1);
+}
+
+function scheduleBeats() {
+  const song = songs.find(s => s.id === currentSongId);
+  if (!song || !isPlaying) return;
+  const ctx = getAudioCtx();
+  const bps = song.bpm / 60;
+  const timeSig = parseInt(song.timeSignature.split('/')[0]) || 4;
+
+  while (nextBeatTime < ctx.currentTime + scheduleAheadTime) {
+    const isAccent = (scheduledBeat % timeSig === 0);
+    playClick(nextBeatTime, isAccent);
+
+    // ── Sync state capture ────────────────────────────────────────────────
+    const capturedBeat     = scheduledBeat;
+    const capturedBeatTime = nextBeatTime;
+    const capturedSectionIdx = currentSectionIdx;
+
+    // ── Advance bar counter synchronously so voice gets the right section/bar
+    let sectionEndedSync = false;
+    if (isAccent && capturedBeat > 0) {
+      currentBarInSection++;
+      const secNow = song.sections[currentSectionIdx];
+      if (currentBarInSection > secNow.bars) {
+        currentBarInSection = 1;
+        if (currentSectionIdx < song.sections.length - 1) {
+          currentSectionIdx++;
+          sectionStartScheduledBeat = capturedBeat;
+          lastRenderedAbsBeat = -1; // reset on section change
+          if (syncRole === 'director') syncSendState();
+        } else {
+          sectionEndedSync = true;
+        }
+      }
+    }
+    // ── Voice scheduling — sync, uses exact audioTime ────────────────────
+    const secAbsBeat = capturedBeat - sectionStartScheduledBeat;
+    scheduleVoiceForBeat(song, currentSectionIdx, secAbsBeat, capturedBeatTime, timeSig);
+
+    // ── Heartbeat broadcast — director sends exact beat server time ───────
+    if (syncRole === 'director' && syncConnected) {
+      const beatServerTime = serverNow() + (nextBeatTime - ctx.currentTime) * 1000;
+      syncSend('beat', {
+        from: syncGetDeviceId(),
+        beatServerTime,
+        bpm: song.bpm,
+        timeSignature: song.timeSignature,
+        sectionIdx: currentSectionIdx,
+        barInSection: currentBarInSection,
+        beatInBar: scheduledBeat % timeSig
+      });
+    }
+
+    // ── Visual/UI updates — async via setTimeout ─────────────────────────
+    const delay = (nextBeatTime - ctx.currentTime) * 1000;
+    const capturedBar = currentBarInSection;
+    const capturedSecIdx = currentSectionIdx;
+    setTimeout(() => {
+      if (!isPlaying) return;
+      beatCount = capturedBeat + 1;
+      // Sync visual state to scheduler's computed values
+      currentBarInSection = capturedBar;
+      currentSectionIdx = capturedSecIdx;
+      if (metroEnabled) {
+        const panel = document.getElementById('sectionCountdown');
+        if (panel) {
+          const cls = isAccent ? 'beat-accent' : 'beat-sub';
+          panel.classList.add(cls);
+          setTimeout(() => panel.classList.remove(cls), isAccent ? 120 : 80);
+        }
+      }
+      // Handle nextSong / auto-stop if last section ended
+      if (sectionEndedSync) { nextSong(); return; }
+      // Re-render on every beat so chord highlight updates within the bar
+      renderLive();
+      // Beat indicator pulse
+      const song2b = songs.find(s => s.id === currentSongId);
+      const timeSig2 = parseInt((song2b||{timeSignature:'4/4'}).timeSignature.split('/')[0]) || 4;
+      const beatInBar = capturedBeat % timeSig2;
+      for (let d = 0; d < timeSig2; d++) {
+        const dot = document.getElementById('beat-dot-' + d);
+        if (dot) dot.classList.toggle('active', d === beatInBar);
+      }
+      const bcEl = document.getElementById('beatCounter');
+      if (bcEl) {
+        // renderLive() already updated this correctly — no action needed
+      }
+    }, Math.max(0, delay));
+
+    nextBeatTime += 1 / bps;
+    scheduledBeat++;
+  }
+}
+
+function startAudioMetronome() {
+  const ctx = getAudioCtx();
+  nextBeatTime = ctx.currentTime + 0.05;
+  scheduledBeat = 0;
+  sectionStartScheduledBeat = 0;
+  schedulerTimer = setInterval(scheduleBeats, lookahead);
+}
+
+function stopAudioMetronome() {
+  if (schedulerTimer) { clearInterval(schedulerTimer); schedulerTimer = null; }
+  scheduledBeat = 0;
+  lastRenderedAbsBeat = -1;
+  resetSpokenCountdowns();
+  try { window.speechSynthesis.cancel(); } catch(e) {}
+}
+
+// ===== NAV =====
+let activeDrawer = null;
+
+function toggleDrawer(screen) {
+  const drawer = document.getElementById('drawer-' + screen);
+  const burger = document.getElementById('hamburger-' + screen);
+  if (!drawer) return;
+  const isOpen = drawer.classList.contains('open');
+  closeDrawer();
+  if (!isOpen) {
+    drawer.classList.add('open');
+    burger.classList.add('open');
+    activeDrawer = screen;
+  }
+}
+
+function closeDrawer() {
+  document.querySelectorAll('.nav-drawer').forEach(d => d.classList.remove('open'));
+  document.querySelectorAll('.hamburger').forEach(b => b.classList.remove('open'));
+  activeDrawer = null;
+}
+
+function goTo(screen) {
+  closeDrawer();
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById('screen-' + screen).classList.add('active');
+  if (screen === 'live') requestWakeLock();
+  else releaseWakeLock();
+}
+
+function startLive() {
+  renderLive();
+  goTo('live');
+  const song = songs.find(s => s.id === currentSongId);
+  if (song && song.bpm > VOICE_MAX_BPM && speechEnabled) {
+    showToast('Guías de voz desactivadas — BPM > ' + VOICE_MAX_BPM);
+  }
+}
+
+// ===== SETLIST =====
+function renderSongList() {
+  const list = document.getElementById('songList');
+  list.innerHTML = songs.map((s, i) => `
+    <div class="song-item ${s.id === currentSongId ? 'active' : ''}" onclick="selectSong(${s.id})">
+      <div class="song-num">${i + 1}</div>
+      <div class="song-info">
+        <div class="song-name">${s.name}</div>
+        <div class="song-meta">${s.key} · ${s.bpm} bpm · ${s.sections.length} sec.</div>
+      </div>
+      <div class="song-item-actions">
+        <button class="song-action-btn export" title="Exportar" onclick="currentSongId=${s.id};exportSong();event.stopPropagation()">↓</button>
+        <button class="song-action-btn delete" title="Eliminar" onclick="deleteSong(${s.id},event)">✕</button>
+      </div>
+    </div>
+  `).join('');
+}
+
+function selectSong(id) {
+  currentSongId = id;
+  currentSectionIdx = 0;
+  currentBarInSection = 1;
+  renderSongList();
+  renderEditor();
+  if (syncConnected && syncRole === 'director') {
+    syncSendSetlist();
+    syncSendState();
+    syncSend('songchange', { from: syncGetDeviceId(), currentSongId: id });
+  }
+}
+
+function addSong() {
+  const id = Date.now();
+  songs.push({ id, name: "Nuevo tema", key: "C", bpm: 100, timeSignature: "4/4", sections: [
+    { name: "Intro", bars: 8, chords: ["C"], note: "", lyrics: "" }
+  ]});
+  selectSong(id);
+}
+
+function renderEditor() {
+  const song = songs.find(s => s.id === currentSongId);
+  if (!song) return;
+  const el = document.getElementById('songEditor');
+  el.innerHTML = `
+    <div class="editor-header">
+      <div class="field-row" style="display:flex;align-items:flex-start;gap:12px;">
+        <div style="flex:1"><div class="field-label">Nombre del tema</div>
+          <input class="field-input" value="${song.name}" oninput="updateSong('name',this.value)" style="font-size:22px;font-weight:500;"/>
+        </div>
+        <div style="display:flex;gap:6px;margin-top:24px;flex-shrink:0;">
+          <span class="save-badge" id="saveBadge">✓ guardado</span>
+          <button class="btn" style="font-size:12px;padding:5px 12px;" onclick="exportSong()">↓ exportar</button>
+        </div>
+      </div>
+      <div class="field-row-3">
+        <div class="field-row"><div class="field-label">Tonalidad</div>
+          <input class="field-input" value="${song.key}" oninput="updateSong('key',this.value)" style="font-family:var(--mono)"/>
+        </div>
+        <div class="field-row"><div class="field-label">BPM</div>
+          <input class="field-input" type="number" value="${song.bpm}" oninput="updateSong('bpm',parseInt(this.value))" style="font-family:var(--mono)"/>
+        </div>
+        <div class="field-row"><div class="field-label">Compás</div>
+          <select class="field-input" onchange="updateSong('timeSignature',this.value)">
+            ${['4/4','3/4','6/8','5/4','7/8'].map(t=>`<option ${t===song.timeSignature?'selected':''}>${t}</option>`).join('')}
+          </select>
+        </div>
+      </div>
+    </div>
+    <div class="sections-editor">
+      <div class="sidebar-title" style="margin-bottom:16px;">Secciones</div>
+      ${song.sections.map((sec,i) => renderSectionEditor(sec, i)).join('')}
+      <button class="add-song-btn" onclick="addSection()">+ Agregar sección</button>
+    </div>
+  `;
+}
+
+function renderSectionEditor(sec, si) {
+  // Beat validation
+  const song_ts = songs.find(s => s.id === currentSongId);
+  const timeSigNum = song_ts ? parseInt(song_ts.timeSignature.split('/')[0]) || 4 : 4;
+  const blocks = sec.blocks || [];
+  const totalBeats = blocks.reduce((sum, bl) => sum + (bl.chords||[]).reduce((s,c) => s+(c.beats||4), 0), 0);
+  const autoCompases = totalBeats > 0 ? Math.round(totalBeats / timeSigNum * 10) / 10 : sec.bars;
+  const expectedBeats = sec.bars * timeSigNum;
+  const beatDiff = totalBeats - expectedBeats;
+  const beatOk = totalBeats === expectedBeats;
+  const beatPct = Math.min(100, expectedBeats > 0 ? (totalBeats / expectedBeats) * 100 : 0);
+  const fillClass = beatOk ? '' : (totalBeats > expectedBeats ? 'error' : 'warning');
+  const labelClass = beatOk ? 'ok' : 'error';
+  const labelText = beatOk
+    ? `\u2713 ${totalBeats} beats (${autoCompases} comp.)`
+    : beatDiff > 0
+      ? `+${beatDiff} beats de m\u00e1s \u2014 ${totalBeats}/${expectedBeats}`
+      : `${Math.abs(beatDiff)} beats faltan \u2014 ${totalBeats}/${expectedBeats}`;
+
+  return `
+    <div class="section-item">
+      <div class="section-head">
+        <input value="${sec.name}" oninput="updateSection(${si},'name',this.value)" placeholder="Nombre"/>
+        <div class="section-bars"><label>Compases:</label>
+          <input type="number" value="${sec.bars}" min="1" max="64" oninput="updateSection(${si},'bars',parseInt(this.value))"/>
+        </div>
+        <button class="del-btn" onclick="deleteSection(${si})">&#x2715;</button>
+      </div>
+      <div class="section-beat-counter">
+        <div class="beat-counter-bar"><div class="beat-counter-fill ${fillClass}" style="width:${beatPct}%"></div></div>
+        <div class="beat-counter-label ${labelClass}">${labelText}</div>
+      </div>
+      <div class="block-editor" id="blocks-${si}">
+        ${blocks.map((bl, bi) => renderBlockRow(si, bi, bl)).join('')}
+      </div>
+      <div class="block-add-row">
+        <button onclick="addBlock(${si})">+ l\u00ednea</button>
+      </div>
+    </div>`;
+}
+
+function renderBlockRow(si, bi, bl) {
+  const chords = bl.chords || [];
+  const hasVoice = bl.voice && bl.voice.trim();
+  // Beat validation per block
+  const song_b = songs.find(s => s.id === currentSongId);
+  const tsNum = song_b ? parseInt(song_b.timeSignature.split('/')[0]) || 4 : 4;
+  const blockBeats = chords.reduce((s,c) => s+(c.beats||4), 0);
+  const blockBeatOk = blockBeats === 0 || blockBeats % tsNum === 0;
+  const blockErrorClass = blockBeats > 0 && !blockBeatOk ? ' beat-error' : '';
+
+  const chordPills = chords.map((c, ci) => `
+    <div class="block-chord-pill">
+      <span class="block-chord-name">${c.chord}</span>
+      <input class="block-chord-beats" type="number" min="1" max="32" value="${c.beats||4}"
+        oninput="updateBlockChordBeats(${si},${bi},${ci},parseInt(this.value)||4)"
+        title="beats"/>
+      <button class="block-chord-del" onclick="delBlockChord(${si},${bi},${ci})">\u2715</button>
+    </div>`).join('');
+
+  const voiceRow = (hasVoice || bl._showVoice) ? `
+    <div class="block-voice-row">
+      <span class="block-voice-icon">\uD83D\uDD0A</span>
+      <input class="block-voice-input" value="${(bl.voice||'').replace(/"/g,'&quot;')}"
+        placeholder="Ej: Entra bater\u00eda, sube volumen..."
+        oninput="updateBlockField(${si},${bi},'voice',this.value)"/>
+      <div class="block-voice-beats">
+        <label>avisar</label>
+        <input type="number" min="0" max="16" value="${bl.voiceBars||2}"
+          oninput="updateBlockField(${si},${bi},'voiceBars',parseInt(this.value)||0)"/>
+        <label>comp.</label>
+      </div>
+      <button class="block-voice-del" onclick="removeBlockVoice(${si},${bi})">\u2715</button>
+    </div>` : '';
+
+  const errorTag = blockBeats > 0 && !blockBeatOk
+    ? `<div class="beat-error-tag">\u26A0 ${blockBeats} beats \u2014 necesita m\u00faltiplo de ${tsNum} (${Math.ceil(blockBeats/tsNum)*tsNum} beats = ${Math.ceil(blockBeats/tsNum)} comp.)</div>`
+    : '';
+
+  return `<div class="lyric-block-row${blockErrorClass}" id="block-${si}-${bi}">
+    <div class="block-chord-row">
+      ${chordPills}
+      <input class="block-chord-input" id="ci-${si}-${bi}" placeholder="+ acorde"
+        onkeydown="if(event.key==='Enter'||event.key===','){addBlockChord(${si},${bi},this.value);this.value='';event.preventDefault();}"
+        onblur="if(this.value.trim()){addBlockChord(${si},${bi},this.value);this.value='';}"/>
+    </div>
+    <div class="block-lyric-row">
+      <input class="block-lyric-input" value="${(bl.lyric||'').replace(/"/g,'&quot;')}"
+        placeholder="letra de esta l\u00ednea..."
+        oninput="updateBlockField(${si},${bi},'lyric',this.value)"/>
+      <div class="block-row-actions">
+        <button class="block-action-btn ${hasVoice?'voice-active':''}"
+          onclick="toggleBlockVoice(${si},${bi})" title="Nota de voz">\uD83D\uDD0A</button>
+        <button class="block-action-btn" onclick="delBlock(${si},${bi})" title="Eliminar l\u00ednea">\u2715</button>
+      </div>
+    </div>
+    ${voiceRow}
+    ${errorTag}
+  </div>`;
+}
+
+function updateSong(key, val) {
+  const song = songs.find(s => s.id === currentSongId);
+  if (song) { song[key] = val; renderSongList(); saveToStorage(); }
+}
+function updateSection(si, key, val) {
+  const song = songs.find(s => s.id === currentSongId);
+  if (song && song.sections[si]) { song.sections[si][key] = val; saveToStorage(); }
+}
+function getBlock(si, bi) {
+  const song = songs.find(s => s.id === currentSongId);
+  return song && song.sections[si] && song.sections[si].blocks ? song.sections[si].blocks[bi] : null;
+}
+function updateBlockField(si, bi, key, val) {
+  const bl = getBlock(si, bi); if (!bl) return;
+  bl[key] = val; saveToStorage();
+}
+function updateBlockChordBeats(si, bi, ci, val) {
+  const bl = getBlock(si, bi); if (!bl || !bl.chords[ci]) return;
+  bl.chords[ci].beats = val;
+  autoUpdateBars(si);
+  saveToStorage();
+  renderEditor();
+}
+
+function autoUpdateBars(si) {
+  const song = songs.find(s => s.id === currentSongId);
+  if (!song || !song.sections[si]) return;
+  const sec = song.sections[si];
+  const timeSigN = parseInt(song.timeSignature.split('/')[0]) || 4;
+  const totalBeats = (sec.blocks||[]).reduce((sum, bl) =>
+    sum + (bl.chords||[]).reduce((s,c) => s+(c.beats||4), 0), 0);
+  if (totalBeats > 0 && totalBeats % timeSigN === 0) {
+    sec.bars = totalBeats / timeSigN;
+  }
+}
+function addBlockChord(si, bi, chord) {
+  chord = chord.trim().replace(',','');
+  if (!chord) return;
+  const bl = getBlock(si, bi); if (!bl) return;
+  if (!bl.chords) bl.chords = [];
+  bl.chords.push({ chord, beats: 4 });
+  autoUpdateBars(si);
+  saveToStorage(); renderEditor();
+}
+function delBlockChord(si, bi, ci) {
+  const bl = getBlock(si, bi); if (!bl) return;
+  bl.chords.splice(ci, 1);
+  autoUpdateBars(si);
+  saveToStorage(); renderEditor();
+}
+function toggleBlockVoice(si, bi) {
+  const bl = getBlock(si, bi); if (!bl) return;
+  if (bl.voice || bl._showVoice) {
+    bl.voice = ''; bl._showVoice = false;
+  } else {
+    bl._showVoice = true;
+    bl.voiceBars = bl.voiceBars || 2;
+  }
+  saveToStorage(); renderEditor();
+}
+function removeBlockVoice(si, bi) {
+  const bl = getBlock(si, bi); if (!bl) return;
+  bl.voice = ''; bl._showVoice = false;
+  saveToStorage(); renderEditor();
+}
+function addBlock(si) {
+  const song = songs.find(s => s.id === currentSongId); if (!song) return;
+  if (!song.sections[si].blocks) song.sections[si].blocks = [];
+  song.sections[si].blocks.push({ chords: [], lyric: '', voice: '', voiceBars: 2 });
+  saveToStorage(); renderEditor();
+}
+function delBlock(si, bi) {
+  const song = songs.find(s => s.id === currentSongId); if (!song) return;
+  song.sections[si].blocks.splice(bi, 1);
+  saveToStorage(); renderEditor();
+}
+function addSection() {
+  const song = songs.find(s => s.id === currentSongId);
+  if (song) { song.sections.push({ name: "Nueva sección", bars: 8, warnBars: 0, blocks: [
+    { chords: [], lyric: '', voice: '', voiceBars: 2 }
+  ]}); renderEditor(); }
+}
+function deleteSection(si) {
+  const song = songs.find(s => s.id === currentSongId);
+  if (song && song.sections.length > 1) { song.sections.splice(si, 1); renderEditor(); }
+}
+
+// ===== BLOCK-NATIVE LIVE RENDERER =====
+
+// Build flat beat timeline from section blocks
+// Returns [{chord, absoluteBeat, blockIdx, chordIdx}]
+function buildTimelineFromBlocks(blocks) {
+  const timeline = [];
+  const blockStarts = []; // blockStarts[bi] = absoluteBeat when block bi starts
+  let abs = 0;
+  (blocks || []).forEach((bl, bi) => {
+    blockStarts[bi] = abs;
+    if (bl.chords && bl.chords.length) {
+      (bl.chords).forEach((c, ci) => {
+        timeline.push({ chord: c.chord, beats: c.beats||4, absoluteBeat: abs, blockIdx: bi, chordIdx: ci });
+        abs += c.beats || 4;
+      });
+    } else {
+      abs += 4;
+    }
+  });
+  timeline.blockStarts = blockStarts; // attach to timeline for easy access
+  return timeline;
+}
+
+// Which timeline entry is active given absolute beat?
+function getActiveEntry(timeline, absBeat) {
+  let active = 0;
+  for (let i = 0; i < timeline.length; i++) {
+    if (timeline[i].absoluteBeat <= absBeat) active = i;
+    else break;
+  }
+  return timeline[active] || null;
+}
+
+// Voice announcement — reads from block.voice + block.voiceBars
+// scheduleVoiceForBeat — called from scheduleBeats with the exact audio clock time
+// absBeat: 0-based beat index in section, audioTime: Web Audio clock time for this beat
+// With avisar=2:
+//   Bar 1 beat 1 → "Entra batería"
+//   Bar 2 beat 1 → timeSig-1 (e.g. "3"), beat 2 → "2", beat 3 → "1", beat 4 → silence → block starts
+const VOICE_MAX_BPM = 130;
+
+function scheduleVoiceForBeat(song, sectionIdx, absBeat, audioTime, timeSig) {
+  if (!speechEnabled) return;
+  if (song.bpm > VOICE_MAX_BPM) return; // too fast for speech
+  const sec = song.sections[sectionIdx];
+  const blocks = sec.blocks || [];
+  const timeline = buildTimelineFromBlocks(blocks);
+  const blockStarts = timeline.blockStarts;
+
+  blocks.forEach((bl, bi) => {
+    if (!bl.voice || !bl.voice.trim()) return;
+    const warnBars = bl.voiceBars || 0;
+    if (warnBars <= 0) return;
+
+    // The voice window IS the block itself — starts when block starts, lasts warnBars
+    const blockStart = blockStarts[bi];
+    if (blockStart === undefined) return;
+
+    // Window: [blockStart, blockStart + warnBars*timeSig)
+    const warnEndBeat = blockStart + warnBars * timeSig;
+    if (absBeat < blockStart || absBeat >= warnEndBeat) return;
+
+    const beatsIntoWarn = absBeat - blockStart;  // 0-based within block
+    const barsIntoWarn  = Math.floor(beatsIntoWarn / timeSig);
+    const beatInWarnBar = beatsIntoWarn % timeSig;
+    const isLastWarnBar = barsIntoWarn === warnBars - 1;
+
+
+    const key = `v-${sectionIdx}-${bi}-${beatsIntoWarn}`;
+    if (spokenCountdowns.has(key)) return;
+    spokenCountdowns.add(key);
+
+    // Check BPM limit — above 130bpm speech gets cut off
+    const songNow = song.sections ? song : songs.find(s => s.id === currentSongId);
+    const currentBpm = songs.find(s => s.id === currentSongId)?.bpm || 90;
+
+    if (!isLastWarnBar) {
+      // Not last warning bar — say text on beat 1
+      if (beatInWarnBar === 0) {
+        speakAt(bl.voice.trim(), audioTime, true);
+      }
+    } else {
+      // Last warning bar — countdown on beats 2, 3, 4
+      // beat 2 (beatInWarnBar=1) → "3"
+      // beat 3 (beatInWarnBar=2) → "2"
+      // beat 4 (beatInWarnBar=3) → "1"
+      if (beatInWarnBar >= 1) {
+        const countVal = timeSig - beatInWarnBar;
+        if (countVal > 0) {
+          speakAt(String(countVal), audioTime, false);
+        }
+      }
+    }
+  });
+}
+
+// ===== LIVE =====
+let lastRenderedAbsBeat = -1;
+
+function renderLive() {
+  const song = songs.find(s => s.id === currentSongId);
+  if (!song) return;
+  const sec = song.sections[currentSectionIdx];
+  const nextSec = song.sections[currentSectionIdx + 1];
+  const timeSig = parseInt(song.timeSignature.split('/')[0]) || 4;
+  const beatInBar = (beatCount % timeSig) + 1;
+  const blocks = sec.blocks || [];
+
+  // Beat timeline
+  const timeline = buildTimelineFromBlocks(blocks);
+  // beatCount = capturedBeat + 1, so current beat is beatCount - 1
+  const absBeat = (beatCount - 1) - sectionStartScheduledBeat;
+  const activeEntry = getActiveEntry(timeline, absBeat);
+  const nextTimelineEntry = activeEntry ? timeline[timeline.indexOf(activeEntry) + 1] : null;
+  const activeBlockIdx = activeEntry ? activeEntry.blockIdx : 0;
+
+  // Header chords
+  const currentChord = activeEntry ? activeEntry.chord : '—';
+  const nextChord = nextTimelineEntry ? nextTimelineEntry.chord
+    : (nextSec && nextSec.blocks && nextSec.blocks[0] && nextSec.blocks[0].chords[0] ? nextSec.blocks[0].chords[0].chord : '—');
+
+  document.getElementById('liveChordCurrent').textContent = currentChord;
+  document.getElementById('liveChordNext').textContent = nextChord;
+  document.getElementById('liveSongName').textContent = song.name;
+  document.getElementById('liveBpm').textContent = song.bpm + ' bpm';
+  document.getElementById('countdownNum').textContent = sec.bars - currentBarInSection + 1;
+  document.getElementById('sectionNameLive').textContent = sec.name;
+  // Section note: show next section name/first voice note as hint
+  const hint = nextSec ? ('Próximo: ' + nextSec.name) : '';
+  document.getElementById('sectionNote').textContent = hint;
+
+  // Render lyric blocks
+  const lyricsEl = document.getElementById('liveLyrics');
+  const isMobile = window.innerWidth <= 700;
+  const base = isMobile ? Math.min(lyricFontSize, 20) : lyricFontSize;
+
+  if (!blocks.length) {
+    lyricsEl.innerHTML = `<div class="lyric-line" style="color:var(--text3);font-size:18px;">[${sec.name}]</div>`;
+  } else {
+    lyricsEl.innerHTML = blocks.map((block, bi) => {
+      const isActive = bi === activeBlockIdx;
+      const isPast = bi < activeBlockIdx;
+      const isUpcoming = bi === activeBlockIdx + 1;
+      let cls = 'lyric-block';
+      if (isActive) cls += ' active';
+      else if (isPast) cls += ' past';
+      else if (isUpcoming) cls += ' upcoming';
+      else cls += ' far';
+
+      const dist = Math.abs(bi - activeBlockIdx);
+      const size = isActive ? base + (isMobile?2:4) : Math.max(base - dist*(isMobile?2:3), isMobile?12:14);
+
+      // Chord row
+      let chordRowHtml = '';
+      if (block.chords && block.chords.length) {
+        const tokens = block.chords.map((c, ci) => {
+          const entryForThis = timeline.find(e => e.blockIdx === bi && e.chordIdx === ci);
+          const isThisActive = isActive && activeEntry && entryForThis && entryForThis.absoluteBeat === activeEntry.absoluteBeat;
+          const isThisNext = !isThisActive && isActive && nextTimelineEntry && entryForThis && entryForThis.absoluteBeat === nextTimelineEntry.absoluteBeat;
+          let tcls = 'chord-token';
+          if (isThisActive) tcls += ' chord-active';
+          else if (isThisNext) tcls += ' chord-next-up';
+          const totalBlockBeats = block.chords.reduce((s,x)=>s+(x.beats||4),0) || 1;
+          const startBeat = block.chords.slice(0,ci).reduce((s,x)=>s+(x.beats||4),0);
+          const leftPct = Math.round((startBeat / totalBlockBeats) * 85);
+          return `<span class="${tcls}" style="left:${leftPct}%">${c.chord}<sub style="font-size:9px;opacity:0.5">×${c.beats||4}</sub></span>`;
+        }).join('');
+        chordRowHtml = `<div class="chord-row">${tokens}</div>`;
+      }
+
+      const lyricHtml = block.lyric
+        ? `<div class="lyric-line ${isActive?'active':''}" style="font-size:${size}px;margin:0">${block.lyric}</div>`
+        : '';
+
+      return `<div class="${cls}">${chordRowHtml}${lyricHtml}</div>`;
+    }).join('');
+  }
+
+  // Setlist dots
+  document.getElementById('setlistDots').innerHTML = songs.map(s => {
+    let cls = 'dot'; if (s.id === currentSongId) cls += ' active';
+    return `<div class="${cls}" onclick="jumpToSong(${s.id})" title="${s.name}"></div>`;
+  }).join('');
+
+  document.getElementById('footerSongName').textContent = song.name;
+  document.getElementById('footerTempo').textContent = song.bpm + ' bpm · ' + song.timeSignature + ' · ' + sec.name;
+
+  // Show/hide controls based on role
+  const isMember = syncRole === 'member';
+  const playBtn = document.getElementById('playBtn');
+  const stopBtn = document.getElementById('stopBtn');
+  if (playBtn) playBtn.style.opacity = isMember ? '0.3' : '1';
+  if (stopBtn) stopBtn.style.opacity = isMember ? '0.3' : '1';
+  // Show sync indicator
+  const syncInd = document.getElementById('syncIndicator');
+  const syncLbl = document.getElementById('syncIndicatorLabel');
+  if (syncInd && syncConnected) {
+    syncInd.style.display = 'flex';
+    if (syncLbl) syncLbl.textContent = isMember ? 'MEMBER' : 'LIVE · ' + (syncMemberCount - 1) + ' músicos';
+  } else if (syncInd) {
+    syncInd.style.display = 'none';
+  }
+
+  // Beat dots
+  const beatDotsRow = document.getElementById('beatDotsRow');
+  if (beatDotsRow) {
+    beatDotsRow.innerHTML = Array.from({length: timeSig}, (_, i) =>
+      `<div class="beat-dot${i===0?' accent-dot':''}" id="beat-dot-${i}"></div>`
+    ).join('');
+  }
+
+  // Beat counter — use beatCount directly (always monotonic, never out of order)
+  // absBeat can arrive late (accentbeat does more work in setTimeout)
+  // beatCount is the ground truth — always use it
+  const beatCounterEl = document.getElementById('beatCounter');
+  if (beatCounterEl) {
+    if (activeEntry && activeEntry.beats && activeEntry.beats !== timeSig) {
+      // Position within chord using beatCount as reference
+      const chordStart = activeEntry.absoluteBeat + sectionStartScheduledBeat;
+      const beatInChord = (beatCount - 1 - chordStart) % activeEntry.beats;
+      beatCounterEl.textContent = activeEntry.beats + ' / ' + (beatInChord + 1);
+      beatCounterEl.style.color = 'rgba(0,0,0,0.9)';
+    } else {
+      const currentBeatInBar = ((beatCount - 1) % timeSig) + 1;
+      beatCounterEl.textContent = timeSig + ' / ' + currentBeatInBar;
+      beatCounterEl.style.color = 'rgba(0,0,0,0.6)';
+    }
+  }
+}
+
+function togglePlay() {
+  if (syncRole === 'member') return; // members can't control playback
+  if (isPlaying) {
+    isPlaying = false;
+    stopAudioMetronome();
+    const btn = document.getElementById('playBtn');
+    btn.innerHTML = `<svg viewBox="0 0 24 24" style="width:18px;height:18px;fill:#000"><polygon points="5,3 19,12 5,21"/></svg>`;
+    syncSendState();
+  } else {
+    startWithCountdown();
+  }
+}
+
+function startWithCountdown() {
+  const song = songs.find(s => s.id === currentSongId);
+  if (!song) return;
+
+  const btn = document.getElementById('playBtn');
+  if (btn) btn.innerHTML = `<svg viewBox="0 0 24 24" style="width:18px;height:18px;fill:#000"><rect x="5" y="3" width="4" height="18"/><rect x="15" y="3" width="4" height="18"/></svg>`;
+
+  const ctx = getAudioCtx();
+  const secPerBeat = 60 / song.bpm;
+  const timeSig = parseInt(song.timeSignature.split('/')[0]) || 4;
+  const countBeats = timeSig;
+  // Audio time when countdown starts
+  const countdownAudioStart = ctx.currentTime + 0.15;
+  // Server time when the actual song starts (after countdown)
+  const songStartServerTime = serverNow() + (countdownAudioStart - ctx.currentTime) * 1000 + countBeats * secPerBeat * 1000;
+
+  // Broadcast to all members BEFORE starting our own countdown
+  if (syncConnected) {
+    syncSend('countdown', {
+      from: syncGetDeviceId(),
+      songId: currentSongId,
+      songStartServerTime: songStartServerTime,
+      bpm: song.bpm,
+      timeSignature: song.timeSignature,
+      countBeats: countBeats
+    });
+  }
+
+  // Run countdown locally
+  runCountdownUI(song, countdownAudioStart, secPerBeat, timeSig, countBeats);
+}
+
+function runCountdownUI(song, startTime, secPerBeat, timeSig, countBeats) {
+  const ctx = getAudioCtx();
+  const overlay = document.getElementById('startCountdown');
+  const numEl   = document.getElementById('startCountdownNum');
+  const songEl  = document.getElementById('startCountdownSong');
+  const bpmEl   = document.getElementById('startCountdownBpm');
+  if (overlay) overlay.classList.add('visible');
+  if (songEl) songEl.textContent = song.name;
+  if (bpmEl) bpmEl.textContent = song.bpm + ' bpm · ' + song.timeSignature;
+
+  const labels = [];
+  for (let i = 0; i < countBeats; i++) labels.push(countBeats - i);
+
+  labels.forEach((label, i) => {
+    const t = startTime + i * secPerBeat;
+    const delayMs = (t - ctx.currentTime) * 1000;
+    setTimeout(() => {
+      if (numEl) { numEl.textContent = label; numEl.classList.add('pulse'); setTimeout(() => numEl.classList.remove('pulse'), 100); }
+    }, Math.max(0, delayMs));
+    playCountdownClick(t, i === 0);
+  });
+
+  const totalMs = (startTime + countBeats * secPerBeat - ctx.currentTime) * 1000;
+  setTimeout(() => {
+    if (overlay) overlay.classList.remove('visible');
+    currentBarInSection = 1;
+    isPlaying = true;
+    startAudioMetronome();
+    if (syncRole === 'director') syncSendState();
+  }, Math.max(0, totalMs));
+}
+
+function showMemberWaiting() {
+  const overlay = document.getElementById('memberWaiting');
+  if (!overlay) return;
+  overlay.classList.add('visible');
+  const song = songs.find(s => s.id === currentSongId);
+  const songEl = document.getElementById('memberWaitingSong');
+  if (songEl && song) songEl.textContent = song.name;
+}
+
+function hideMemberWaiting() {
+  const overlay = document.getElementById('memberWaiting');
+  if (overlay) overlay.classList.remove('visible');
+}
+
+let memberAudioUnlocked = false;
+function memberTapUnlock() {
+  if (memberAudioUnlocked) return;
+  try {
+    const ctx = getAudioCtx();
+    if (ctx.state === 'suspended') ctx.resume();
+    // Silent oscillator to fully unlock AudioContext on mobile
+    const osc = ctx.createOscillator();
+    const g = ctx.createGain();
+    osc.connect(g); g.connect(ctx.destination);
+    g.gain.setValueAtTime(0.0001, ctx.currentTime);
+    osc.start(ctx.currentTime); osc.stop(ctx.currentTime + 0.01);
+    memberAudioUnlocked = true;
+    const t = document.getElementById('memberWaitingTitle');
+    if (t) t.textContent = 'Listo — esperando al director';
+    console.log('[AUDIO] unlocked');
+  } catch(e) { console.warn('[AUDIO] unlock failed:', e); }
+}
+
+function stopShow() {
+  isPlaying = false;
+  stopAudioMetronome();
+  currentSectionIdx = 0;
+  currentBarInSection = 1;
+  const btn = document.getElementById('playBtn');
+  if (btn) btn.innerHTML = `<svg viewBox="0 0 24 24" style="width:18px;height:18px;fill:#000"><polygon points="5,3 19,12 5,21"/></svg>`;
+  if (syncRole === 'director') {
+    syncSend('state', { from: syncGetDeviceId(), action: 'stop', ts: Date.now() });
+    goTo('setlist');
+  } else if (syncRole === 'member') {
+    // Member stays on live screen in waiting state
+    goTo('live');
+    renderLive();
+    showMemberWaiting();
+  } else {
+    goTo('setlist');
+  }
+}
+
+function nextSong() {
+  resetSpokenCountdowns();
+  const idx = songs.findIndex(s => s.id === currentSongId);
+  if (idx < songs.length - 1) {
+    currentSongId = songs[idx + 1].id;
+    currentSectionIdx = 0;
+    currentBarInSection = 1;
+    sectionStartScheduledBeat = 0;
+    stopAudioMetronome();
+    isPlaying = false;
+    const btn = document.getElementById('playBtn');
+    btn.innerHTML = `<svg viewBox="0 0 24 24" style="width:18px;height:18px;fill:#000"><polygon points="5,3 19,12 5,21"/></svg>`;
+    renderLive();
+    showToast('Tema: ' + songs[idx + 1].name);
+    if (syncConnected && syncRole === 'director') { syncSendSetlist(); syncSendState(); }
+  } else {
+    // Last song finished — auto stop
+    stopShow();
+    showToast('Fin del setlist');
+  }
+}
+
+function jumpToSong(id) {
+  currentSongId = id;
+  currentSectionIdx = 0;
+  currentBarInSection = 1;
+  stopAudioMetronome();
+  isPlaying = false;
+  const btn = document.getElementById('playBtn');
+  btn.innerHTML = `<svg viewBox="0 0 24 24" style="width:18px;height:18px;fill:#000"><polygon points="5,3 19,12 5,21"/></svg>`;
+  renderLive();
+}
+
+// ===== SYNC =====
+function generateCode() {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let code = '';
+  for (let i = 0; i < 6; i++) code += chars[Math.floor(Math.random() * chars.length)];
+  document.getElementById('sessionCode').textContent = code;
+  document.getElementById('statusText').textContent = 'Conectando...';
+  syncInit(code, 'director');
+}
+
+function copyCode() {
+  const code = document.getElementById('sessionCode').textContent;
+  navigator.clipboard.writeText(code).catch(() => {});
+  showToast('Código copiado: ' + code);
+}
+
+function joinSession() {
+  const code = document.getElementById('joinCodeInput').value.toUpperCase().trim();
+  if (code.length < 4) { showToast('Ingresá el código de sesión'); return; }
+  // Unlock AudioContext immediately from this user gesture
+  try { const ctx = getAudioCtx(); if (ctx.state === 'suspended') ctx.resume(); } catch(e) {}
+  showToast('Conectando a sesión: ' + code);
+  syncInit(code, 'member');
+  setTimeout(() => {
+    renderLive();
+    goTo('live');
+    showMemberWaiting();
+  }, 800);
+}
+
+function setRole(r) {
+  role = r;
+  syncRole = r;
+  document.getElementById('roleDirector').classList.toggle('active', r === 'director');
+  document.getElementById('roleMember').classList.toggle('active', r === 'member');
+  document.getElementById('directorCard').style.display = r === 'director' ? '' : 'none';
+  document.getElementById('memberCard').style.display = r === 'member' ? '' : 'none';
+  // Disconnect current session if role changes
+  if (syncConnected) syncLeave();
+}
+
+function renderMembers() {
+  const members = [
+    { name: "Vos (director)", instrument: "Guitarra", ping: "—", initials: "TU" },
+  ];
+  document.getElementById('memberList').innerHTML = members.map(m => `
+    <div class="member-item">
+      <div class="member-avatar">${m.initials}</div>
+      <div class="flex-1"><div class="member-name">${m.name}</div><div class="member-role">${m.instrument}</div></div>
+      <div class="member-ping">${m.ping}</div>
+    </div>
+  `).join('') + `<div style="color:var(--text3);font-size:13px;padding:12px 0;text-align:center;">Compartí el código para que se unan</div>`;
+}
+
+// ===== CONFIG =====
+function toggleConfig(el) { el.classList.toggle('on'); }
+function toggleMetro(el) { el.classList.toggle('on'); metroEnabled = el.classList.contains('on'); }
+function toggleMetroSound(el) { el.classList.toggle('on'); metroSound = el.classList.contains('on'); if(metroSound) getAudioCtx(); }
+function toggleSpeech(el) { el.classList.toggle('on'); speechEnabled = el.classList.contains('on'); }
+function updateMetroVol(v) { metroVolume = parseInt(v) / 100; document.getElementById('metroVolVal').textContent = v + '%'; }
+function updateFontSize(v) { lyricFontSize = parseInt(v); document.getElementById('fontSizeVal').textContent = v + 'px'; }
+// ===== SAVE / EXPORT / IMPORT =====
+function saveToStorage() {
+  try {
+    localStorage.setItem('bandprompt_songs', JSON.stringify(songs));
+    const badge = document.getElementById('saveBadge');
+    if (badge) {
+      badge.classList.add('show');
+      setTimeout(() => badge.classList.remove('show'), 1800);
+    }
+  } catch(e) {}
+  if (typeof currentUser !== 'undefined' && currentUser) pushSetlistToCloud();
+}
+
+function loadFromStorage() {
+  try {
+    const saved = localStorage.getItem('bandprompt_songs');
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      if (Array.isArray(parsed) && parsed.length) {
+        songs = parsed;
+        currentSongId = songs[0].id;
+        return true;
+      }
+    }
+  } catch(e) {}
+  return false;
+}
+
+function exportSong() {
+  const song = songs.find(s => s.id === currentSongId);
+  if (!song) return;
+  const json = JSON.stringify(song, null, 2);
+  const blob = new Blob([json], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = song.name.replace(/[^a-zA-Z0-9]/g, '_') + '.json';
+  a.click();
+  showToast('Canción exportada: ' + song.name);
+}
+
+function exportData() {
+  const json = JSON.stringify(songs, null, 2);
+  const blob = new Blob([json], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'setlist_completo.json';
+  a.click();
+  showToast('Setlist exportado');
+}
+
+function shareSetlist() {
+  const json = JSON.stringify(songs, null, 2);
+  const blob = new Blob([json], { type: 'application/json' });
+  const file = new File([blob], 'setlist.json', { type: 'application/json' });
+  if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+    navigator.share({
+      title: 'BandPrompt Setlist',
+      text: 'Setlist con ' + songs.length + ' temas',
+      files: [file]
+    }).catch(() => exportData());
+  } else {
+    // Fallback: copy JSON to clipboard
+    navigator.clipboard.writeText(json).then(() => {
+      showToast('Setlist copiado al portapapeles');
+    }).catch(() => exportData());
+  }
+}
+
+function importData() {
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = '.json';
+  input.onchange = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      try {
+        const data = JSON.parse(ev.target.result);
+        const imported = Array.isArray(data) ? data : (data.songs || [data]);
+        if (!imported.length) { showToast('Archivo inválido'); return; }
+        imported.forEach(s => { if (!s.id) s.id = Date.now() + Math.random(); });
+        songs = [...songs, ...imported];
+        saveToStorage();
+        renderSongList();
+        showToast(imported.length + ' tema(s) importados');
+      } catch(e) { showToast('Error al leer el archivo'); }
+    };
+    reader.readAsText(file);
+  };
+  input.click();
+}
+
+function openSongFile(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (ev) => {
+    try {
+      const data = JSON.parse(ev.target.result);
+      // Accept single song object or array with one song
+      const song = Array.isArray(data) ? data[0] : data;
+      if (!song || !song.name) { showToast('Archivo de canción inválido'); return; }
+      song.id = Date.now();
+      songs.push(song);
+      saveToStorage();
+      selectSong(song.id);
+      showToast('Canción cargada: ' + song.name);
+    } catch(e) { showToast('Error al leer el archivo'); }
+    input.value = '';
+  };
+  reader.readAsText(file);
+}
+
+function deleteSong(id, e) {
+  e.stopPropagation();
+  if (songs.length <= 1) { showToast('Debe haber al menos un tema'); return; }
+  songs = songs.filter(s => s.id !== id);
+  if (currentSongId === id) currentSongId = songs[0].id;
+  saveToStorage();
+  renderSongList();
+  renderEditor();
+  showToast('Tema eliminado');
+}
+
+// ===== TOAST =====
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2500);
+}
+
+// ===== SOCKET.IO SYNC ENGINE =====
+// El transporte de sincronización en tiempo real usa Socket.io en lugar de Supabase Realtime.
+// Supabase sigue usándose SOLO para auth y almacenamiento de setlists en la nube.
+let socket = null;
+let clockSync = null;
+let syncRole = 'director';
+let syncSessionCode = null;
+let syncConnected = false;
+let syncMemberCount = 0;
+const sessionMembers = new Map(); // id -> { role, name }
+
+// Hora estimada del servidor (ms), usando NTP de clock-sync.js
+function serverNow() {
+  return clockSync ? clockSync.serverNow() : Date.now();
+}
+
+let deviceId = null;
+function syncGetDeviceId() {
+  if (!deviceId) deviceId = Math.random().toString(36).substr(2, 9);
+  return deviceId;
+}
+
+function syncInit(code, role) {
+  syncSessionCode = code;
+  syncRole = role;
+  syncConnected = false;
+  sessionMembers.clear();
+
+  if (!socket) {
+    socket = io();
+    clockSync = new ClockSync(socket);
+
+    // Sincronización NTP con el servidor (8 rounds, mediana del offset)
+    clockSync.sync(8).then(offset => {
+      console.log('[CLOCK] offset=' + offset + 'ms');
+    });
+
+    // ── Eventos retransmitidos por el servidor ───────────────────────────
+    socket.on('beat', (payload) => {
+      if (payload.from === syncGetDeviceId()) return;
+      if (syncRole === 'member' && isPlaying) syncReceiveBeat(payload);
+    });
+
+    socket.on('state', (payload) => {
+      if (payload.from === syncGetDeviceId()) return;
+      if (syncRole === 'member') syncReceiveState(payload);
+    });
+
+    socket.on('setlist', (payload) => {
+      if (payload.from === syncGetDeviceId()) return;
+      if (syncRole === 'member') syncReceiveSetlist(payload);
+    });
+
+    socket.on('songchange', (payload) => {
+      if (payload.from === syncGetDeviceId()) return;
+      if (syncRole === 'member') {
+        currentSongId = payload.currentSongId;
+        renderLive();
+        const songEl = document.getElementById('memberWaitingSong');
+        const song = songs.find(s => s.id === currentSongId);
+        if (songEl && song) songEl.textContent = song.name;
+        showToast('Tema: ' + (song ? song.name : ''));
+      }
+    });
+
+    socket.on('countdown', (payload) => {
+      if (payload.from === syncGetDeviceId()) return;
+      syncReceiveCountdown(payload);
+    });
+
+    // ── Presencia de miembros ────────────────────────────────────────────
+    socket.on('member_joined', ({ id, role, name }) => {
+      sessionMembers.set(id, { role, name });
+      syncMemberCount = sessionMembers.size + 1;
+      syncUpdateMemberList();
+    });
+
+    socket.on('member_left', ({ id }) => {
+      sessionMembers.delete(id);
+      syncMemberCount = sessionMembers.size + 1;
+      syncUpdateMemberList();
+    });
+
+    socket.on('disconnect', () => {
+      syncConnected = false;
+      syncUpdateStatus(false);
+    });
+  }
+
+  // Unirse a la sala del servidor
+  socket.emit('join_session', {
+    code: code.toUpperCase(),
+    role: role,
+    name: role === 'director' ? 'Director' : 'Miembro'
+  }, (res) => {
+    if (res && res.success) {
+      syncConnected = true;
+      syncUpdateStatus(true);
+      if (syncRole === 'director') { syncSendSetlist(); syncSendState(); }
+    }
+  });
+}
+
+function syncSend(event, payload) {
+  if (!socket || !syncConnected) return;
+  socket.emit(event, payload);
+}
+
+function syncSendState() {
+  if (syncRole !== 'director') return;
+  syncSend('state', {
+    from: syncGetDeviceId(),
+    action: isPlaying ? 'play' : 'pause',
+    songId: currentSongId,
+    sectionIdx: currentSectionIdx,
+    barInSection: currentBarInSection,
+    beatCount: beatCount,
+    bpm: songs.find(s => s.id === currentSongId)?.bpm || 90,
+    timeSignature: songs.find(s => s.id === currentSongId)?.timeSignature || '4/4',
+    serverTs: serverNow()
+  });
+}
+
+function syncSendSetlist() {
+  if (syncRole !== 'director') return;
+  syncSend('setlist', { songs, currentSongId });
+}
+
+function syncReceiveSetlist(payload) {
+  if (!payload.songs || !payload.songs.length) return;
+  const prevSongId = currentSongId;
+  songs = payload.songs;
+  currentSongId = payload.currentSongId || songs[0].id;
+  saveToStorage();
+  renderSongList();
+  const songEl = document.getElementById('memberWaitingSong');
+  if (songEl) {
+    const song = songs.find(s => s.id === currentSongId);
+    if (song) songEl.textContent = song.name;
+  }
+  if (prevSongId !== currentSongId) showToast('Tema: ' + (songs.find(s=>s.id===currentSongId)?.name || ''));
+}
+
+function syncReceiveState(payload) {
+  const song = songs.find(s => s.id === payload.songId);
+  if (!song) return;
+  const songChanged = currentSongId !== payload.songId;
+  currentSongId = payload.songId;
+  currentSectionIdx = payload.sectionIdx;
+  currentBarInSection = payload.barInSection;
+  beatCount = payload.beatCount;
+  sectionStartScheduledBeat = scheduledBeat - (payload.barInSection - 1) * (parseInt(payload.timeSignature?.split('/')[0]) || 4);
+  if (payload.action === 'pause' && isPlaying) {
+    isPlaying = false;
+    stopAudioMetronome();
+    const btn = document.getElementById('playBtn');
+    if (btn) btn.innerHTML = '<svg viewBox="0 0 24 24" style="width:18px;height:18px;fill:#000"><polygon points="5,3 19,12 5,21"/></svg>';
+    renderLive();
+  } else if (payload.action === 'stop') {
+    stopShow();
+    if (syncRole === 'member') { goTo('live'); showMemberWaiting(); }
+  } else if (payload.action === 'play') {
+    if (songChanged) renderSongList();
+    renderLive();
+  } else {
+    renderLive();
+  }
+}
+
+// ── Phase Lock Loop — ajusta el metrónomo del miembro para sincronizar con el director ──
+let pllErrorHistory = [];
+
+function syncReceiveBeat(payload) {
+  if (!isPlaying || !audioCtx) return;
+  const ctx = getAudioCtx();
+  const now = Date.now();
+  // Convertir tiempo del servidor al reloj local
+  const expectedLocalBeatTime = payload.beatServerTime - (clockSync ? clockSync.offset : 0);
+  const msToNextBeat = (nextBeatTime - ctx.currentTime) * 1000;
+  const memberNextBeatWall = now + msToNextBeat;
+  const errorMs = expectedLocalBeatTime - memberNextBeatWall;
+  // Ignorar outliers (picos de red)
+  if (Math.abs(errorMs) > 500) return;
+  pllErrorHistory.push(errorMs);
+  if (pllErrorHistory.length > 8) pllErrorHistory.shift();
+  const sorted = [...pllErrorHistory].sort((a,b) => a-b);
+  const medianError = sorted[Math.floor(sorted.length / 2)];
+  // Corrección suave (ganancia 0.25)
+  const correction = medianError * 0.25 / 1000;
+  nextBeatTime += correction;
+  // Sincronizar sección/compás si hay desvío
+  if (payload.sectionIdx !== currentSectionIdx || Math.abs(payload.barInSection - currentBarInSection) > 1) {
+    currentSectionIdx = payload.sectionIdx;
+    currentBarInSection = payload.barInSection;
+    sectionStartScheduledBeat = scheduledBeat - (payload.barInSection - 1) * (parseInt(payload.timeSignature)||4);
+    renderLive();
+  }
+}
+
+function syncReceiveCountdown(payload) {
+  const song = songs.find(s => s.id === payload.songId);
+  if (!song) return;
+  currentSongId = payload.songId;
+  currentSectionIdx = 0;
+  currentBarInSection = 1;
+  const localSongStart = payload.songStartServerTime - (clockSync ? clockSync.offset : 0);
+  const msUntilSongStart = localSongStart - Date.now();
+  const secPerBeat = 60 / payload.bpm;
+  const timeSig = parseInt(payload.timeSignature.split('/')[0]) || 4;
+  const countBeats = payload.countBeats || timeSig;
+  const countdownMs = countBeats * secPerBeat * 1000;
+  const msUntilCountdownStart = msUntilSongStart - countdownMs;
+  goTo('live'); renderLive();
+  hideMemberWaiting();
+  const ctx = getAudioCtx();
+  if (msUntilCountdownStart >= -countdownMs) {
+    const audioStart = ctx.currentTime + Math.max(0.02, msUntilCountdownStart / 1000);
+    const beatsToShow = msUntilCountdownStart >= 0 ? countBeats
+      : Math.max(1, countBeats - Math.floor(-msUntilCountdownStart / (secPerBeat * 1000)));
+    runCountdownUI(song, audioStart, secPerBeat, timeSig, beatsToShow);
+  }
+  setTimeout(() => {
+    currentBarInSection = 1; isPlaying = true; sectionStartScheduledBeat = 0;
+    startAudioMetronome();
+    const overlay = document.getElementById('startCountdown');
+    if (overlay) overlay.classList.remove('visible');
+    const btn = document.getElementById('playBtn');
+    if (btn) btn.innerHTML = '<svg viewBox="0 0 24 24" style="width:18px;height:18px;fill:#000"><rect x="5" y="3" width="4" height="18"/><rect x="15" y="3" width="4" height="18"/></svg>';
+  }, Math.max(0, msUntilSongStart));
+}
+
+function syncUpdateStatus(connected) {
+  const dot = document.getElementById('statusDot');
+  const text = document.getElementById('statusText');
+  if (dot) dot.classList.toggle('connected', connected);
+  if (text) {
+    if (connected && syncRole === 'director') text.textContent = 'Sesión activa · ' + syncSessionCode;
+    else if (connected) text.textContent = 'Conectado al director';
+    else text.textContent = 'Desconectado';
+  }
+}
+
+function syncUpdateMemberList() {
+  const list = document.getElementById('memberList');
+  if (!list) return;
+  const allMembers = [
+    { id: 'self', role: syncRole, name: syncRole === 'director' ? 'Director' : 'Miembro' },
+    ...Array.from(sessionMembers.values())
+  ];
+  if (allMembers.length <= 1 && syncRole === 'director') {
+    list.innerHTML = '<div style="color:var(--text3);font-size:13px;padding:12px 0;text-align:center;">Esperando conexiones...</div>';
+    return;
+  }
+  list.innerHTML = allMembers.map(m => {
+    const initials = (m.name || 'MB').substring(0, 2).toUpperCase();
+    return '<div class="member-item">' +
+      '<div class="member-avatar">' + initials + '</div>' +
+      '<div style="flex:1"><div class="member-name">' + (m.name||'Miembro') + '</div>' +
+      '<div class="member-role">' + (m.role==='director'?'Director':'Miembro') + '</div></div>' +
+      '<div class="member-ping" style="color:var(--green)">' + (m.role==='director'?'★':'●') + '</div>' +
+      '</div>';
+  }).join('');
+}
+
+function syncLeave() {
+  if (socket) { socket.emit('leave_session'); syncConnected = false; }
+  syncSessionCode = null;
+  sessionMembers.clear();
+  syncUpdateStatus(false);
+}
+
+setInterval(() => {
+  if (syncRole === 'director' && syncConnected && isPlaying) {
+    syncSendState();
+  }
+}, 1000);
+
+// ===== AUTH ENGINE =====
+let currentUser = null;
+
+async function initAuth() {
+  // Check if returning from OAuth redirect
+  const { data: { session } } = await supabaseClient.auth.getSession();
+  if (session) {
+    currentUser = session.user;
+    onUserLoggedIn(session.user);
+    return;
+  }
+  // Listen for auth changes
+  supabaseClient.auth.onAuthStateChange((event, session) => {
+    if (event === 'SIGNED_IN' && session) {
+      currentUser = session.user;
+      onUserLoggedIn(session.user);
+    } else if (event === 'SIGNED_OUT') {
+      currentUser = null;
+      onUserLoggedOut();
+    }
+  });
+  // Show auth screen
+  const skipAuth = localStorage.getItem('bandprompt_skip_auth');
+  if (!skipAuth) {
+    document.getElementById('authScreen').style.display = 'flex';
+  }
+}
+
+async function loginWithGoogle() {
+  const { error } = await supabaseClient.auth.signInWithOAuth({
+    provider: 'google',
+    options: { redirectTo: window.location.origin + window.location.pathname }
+  });
+  if (error) showToast('Error al iniciar sesión: ' + error.message);
+}
+
+async function logout() {
+  await supabaseClient.auth.signOut();
+  currentUser = null;
+  localStorage.removeItem('bandprompt_skip_auth');
+  document.getElementById('navUser').style.display = 'none';
+  document.getElementById('authScreen').style.display = 'flex';
+  showToast('Sesión cerrada');
+}
+
+function skipAuth() {
+  localStorage.setItem('bandprompt_skip_auth', '1');
+  document.getElementById('authScreen').style.display = 'none';
+}
+
+function onUserLoggedIn(user) {
+  document.getElementById('authScreen').style.display = 'none';
+  updateDrawerProfiles(user);
+  syncSetlistToCloud();
+  showToast('Bienvenido, ' + (user.user_metadata?.full_name || user.email).split(' ')[0] + ' 👋');
+}
+
+function updateDrawerProfiles(user) {
+  const screens = ['setlist','sync','config','help'];
+  screens.forEach(s => {
+    const avatarWrap = document.getElementById('drawerAvatarWrap-' + s);
+    const avatarImg = document.getElementById('drawerAvatar-' + s);
+    const nameEl = document.getElementById('drawerName-' + s);
+    const emailEl = document.getElementById('drawerEmail-' + s);
+    const loginBtn = document.getElementById('drawerLoginBtn-' + s);
+    const logoutBtn = document.getElementById('drawerLogoutBtn-' + s);
+    if (!nameEl) return;
+    if (user) {
+      if (avatarWrap) avatarWrap.style.display = 'none';
+      if (avatarImg && user.user_metadata?.avatar_url) {
+        avatarImg.src = user.user_metadata.avatar_url;
+        avatarImg.style.display = 'block';
+      }
+      nameEl.textContent = user.user_metadata?.full_name || 'Usuario';
+      emailEl.textContent = user.email || '';
+      if (loginBtn) loginBtn.style.display = 'none';
+      if (logoutBtn) logoutBtn.style.display = 'block';
+    } else {
+      if (avatarWrap) avatarWrap.style.display = 'flex';
+      if (avatarImg) avatarImg.style.display = 'none';
+      nameEl.textContent = 'Sin cuenta';
+      emailEl.textContent = 'Usá Google para guardar en la nube';
+      if (loginBtn) loginBtn.style.display = 'block';
+      if (logoutBtn) logoutBtn.style.display = 'none';
+    }
+  });
+}
+
+function onUserLoggedOut() {
+  const navUser = document.getElementById('navUser');
+  if (navUser) navUser.style.display = 'none';
+  updateDrawerProfiles(null);
+}
+
+// Cloud setlist sync (simple key-value in Supabase user metadata)
+async function syncSetlistToCloud() {
+  if (!currentUser) return;
+  try {
+    // Load from cloud first
+    const { data: profile } = await supabaseClient
+      .from('user_setlists')
+      .select('songs')
+      .eq('user_id', currentUser.id)
+      .single();
+    if (profile && profile.songs && profile.songs.length > 0) {
+      // Merge: cloud wins for songs not in local
+      const cloudIds = profile.songs.map(s => s.id);
+      const localOnly = songs.filter(s => !cloudIds.includes(s.id));
+      songs = [...profile.songs, ...localOnly];
+      saveToStorage();
+      renderSongList();
+      renderEditor();
+      showToast('Setlist sincronizado desde la nube');
+    } else {
+      // Push local to cloud
+      await pushSetlistToCloud();
+    }
+  } catch(e) {
+    // Table might not exist yet — push local
+    await pushSetlistToCloud();
+  }
+}
+
+async function pushSetlistToCloud() {
+  if (!currentUser) return;
+  try {
+    await supabaseClient.from('user_setlists').upsert({
+      user_id: currentUser.id,
+      songs: songs,
+      updated_at: new Date().toISOString()
+    });
+  } catch(e) {}
+}
+
+// Cloud auto-save is now inline in saveToStorage above
+
+// ===== INIT =====
+loadFromStorage();
+renderSongList();
+renderEditor();
+generateCode();
+renderMembers();
+initAuth(); // check login state
+
+// Pre-load voices as soon as possible
+if (window.speechSynthesis) {
+  window.speechSynthesis.getVoices(); // trigger initial load
+  loadVoice();
+  // On first user interaction, re-load voices (needed for Chrome)
+  document.addEventListener('click', function initSpeech() {
+    loadVoice();
+    document.removeEventListener('click', initSpeech);
+  }, { once: true });
+}
+</script>
+<!-- ===== HELP SCREEN ===== -->
+<div class="screen" id="screen-help">
+  <div class="nav">
+    <div class="nav-logo">Band<span>Prompt</span></div>
+    <div class="nav-tabs">
+      <button class="nav-tab" onclick="goTo('setlist')">Setlist</button>
+      <button class="nav-tab" onclick="goTo('sync')">Sincronizar</button>
+      <button class="nav-tab" onclick="goTo('config')">Configuración</button>
+      <button class="nav-tab active" onclick="goTo('help')">Ayuda</button>
+    </div>
+    <div class="nav-actions">
+      <div class="auth-user" id="navUser3" style="display:none">
+        <img class="auth-avatar" id="navAvatar3" src="" alt=""/>
+      </div>
+      <button class="btn primary" onclick="startLive()">▶ Iniciar show</button>
+    </div>
+    <button class="hamburger" id="hamburger-help" onclick="toggleDrawer('help')" aria-label="Menú">
+      <span></span><span></span><span></span>
+    </button>
+  </div>
+  <div class="nav-drawer" id="drawer-help">
+    <div class="nav-drawer-backdrop" onclick="closeDrawer()"></div>
+    <div class="nav-drawer-inner">
+      <div class="drawer-profile">
+        <div class="drawer-profile-avatar-placeholder" id="drawerAvatarWrap-help"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></div>
+        <img class="drawer-profile-avatar" id="drawerAvatar-help" src="" style="display:none;width:48px;height:48px;border-radius:50%;border:2px solid var(--border);margin-bottom:10px;object-fit:cover;" alt=""/>
+        <div class="drawer-profile-name" id="drawerName-help">Sin cuenta</div>
+        <div class="drawer-profile-email" id="drawerEmail-help">Usá Google para guardar en la nube</div>
+        <div class="drawer-profile-actions">
+          <button class="drawer-profile-btn" id="drawerLoginBtn-help" onclick="closeDrawer();loginWithGoogle()">Iniciar sesión</button>
+          <button class="drawer-profile-btn danger" id="drawerLogoutBtn-help" style="display:none" onclick="closeDrawer();logout()">Cerrar sesión</button>
+        </div>
+      </div>
+      <div class="nav-drawer-divider"></div>
+      <div class="drawer-nav">
+      <button class="nav-drawer-item" onclick="closeDrawer();goTo('setlist')">
+        <div class="drawer-icon-wrap"><svg viewBox="0 0 24 24"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg></div>
+        <span class="drawer-item-label">Setlist</span>
+      </button>
+      <button class="nav-drawer-item" onclick="closeDrawer();goTo('sync')">
+        <div class="drawer-icon-wrap"><svg viewBox="0 0 24 24"><path d="M21 2v6h-6"/><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M3 22v-6h6"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/></svg></div>
+        <span class="drawer-item-label">Sincronizar</span>
+      </button>
+      <button class="nav-drawer-item" onclick="closeDrawer();goTo('config')">
+        <div class="drawer-icon-wrap"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></div>
+        <span class="drawer-item-label">Configuración</span>
+      </button>
+      <button class="nav-drawer-item active" onclick="closeDrawer();goTo('help')">
+        <div class="drawer-icon-wrap"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></div>
+        <span class="drawer-item-label">Ayuda</span>
+      </button>
+      </div>
+      <div class="nav-drawer-divider"></div>
+      <button class="drawer-start-btn" onclick="closeDrawer();startLive()">&#9654; Iniciar show</button>
+    </div>
+  </div>
+  <div class="help-body">
+    <div class="help-hero">
+      <div class="help-hero-title">Band<span>Prompt</span></div>
+      <div class="help-hero-sub">Teleprompter musical sincronizado para bandas en vivo. Letra, acordes y guías de voz en tiempo real, en todos los dispositivos de la banda.</div>
+      <div class="help-disclaimer">
+        <strong style="color:var(--text)">Proyecto experimental y gratuito</strong><br>
+        Esta app nació de la necesidad de tener una herramienta real para tocar en vivo. La construí con tiempo robado entre ensayos y shows. Tiene bugs, tiene cosas por mejorar y hay mil features que me gustaría agregar — pero el tiempo es lo que es.<br><br>
+        Si te sirve, úsala. Si encontrás algo roto, paciencia. Si querés apoyar el proyecto, hay un botón de Ko-fi en Configuración. No hay fines comerciales acá — solo un músico tratando de ayudar a otros músicos. 🎸
+      </div>
+    </div>
+    <div class="help-content">
+
+      <div class="help-section">
+        <div class="help-section-title">Flujo básico de uso</div>
+        <div class="help-step"><div class="help-step-num">1</div><div class="help-step-text"><strong>Creá tu setlist</strong> — En la pantalla Setlist agregá tus temas. Cada tema tiene secciones (Intro, Estrofa, Coro, etc.).</div></div>
+        <div class="help-step"><div class="help-step-num">2</div><div class="help-step-text"><strong>Editá cada sección</strong> — Agregá bloques con acordes y letra. Los acordes van arriba, la letra abajo de cada bloque.</div></div>
+        <div class="help-step"><div class="help-step-num">3</div><div class="help-step-text"><strong>Configurá el BPM y compás</strong> — El metrónomo los usa para sincronizar todo.</div></div>
+        <div class="help-step"><div class="help-step-num">4</div><div class="help-step-text"><strong>Iniciá el show</strong> — Tocá ▶ Iniciar show. Aparece un countdown y arranca el metrónomo.</div></div>
+        <div class="help-step"><div class="help-step-num">5</div><div class="help-step-text"><strong>Seguí la pantalla</strong> — La línea activa aparece en blanco. Los acordes se iluminan en verde beat a beat.</div></div>
+      </div>
+
+      <div class="help-section">
+        <div class="help-section-title">El editor de bloques</div>
+        <div class="help-block">
+          <div class="help-block-title"><span class="hicon">🎸</span> Acordes y beats</div>
+          <p>Cada bloque tiene una fila de acordes arriba y la letra abajo. Cada acorde tiene un número que indica cuántos beats dura.</p>
+          <div class="help-code">Em(4)  →  Em dura 4 beats (1 compás en 4/4)<br>Em(2)  →  Em dura 2 beats (medio compás)<br>Em(4) G(4)  →  2 acordes, 1 compás cada uno</div>
+          <p>Los compases de la sección se calculan automáticamente según los beats que cargues. Si los beats no cierran un compás exacto, el bloque se marca en rojo.</p>
+          <div class="help-tip">💡 El número de compases se actualiza solo — no hace falta calcularlo manualmente.</div>
+        </div>
+        <div class="help-block">
+          <div class="help-block-title"><span class="hicon">🔊</span> Notas de voz</div>
+          <p>Cada bloque puede tener una nota de voz — un mensaje que la app dice en voz alta antes de que llegue ese momento. Tocá el ícono 🔊 en cualquier línea para activarla.</p>
+          <div class="help-code">Nota: "Entra batería"  |  Avisar: 2 compases</div>
+          <p>Con <strong>avisar 2 compases</strong>, la app dice el texto en el primer compás y cuenta "3... 2... 1" en el segundo, con cada número en un beat.</p>
+          <div class="help-warn">⚠ Las guías de voz se desactivan automáticamente si el BPM supera 130. A alta velocidad el speech no alcanza a procesarse entre un beat y el siguiente.</div>
+        </div>
+      </div>
+
+      <div class="help-section">
+        <div class="help-section-title">La vista en vivo</div>
+        <div class="help-block">
+          <div class="help-block-title"><span class="hicon">🟢</span> Panel verde — compás y beat</div>
+          <p>El número grande es la cantidad de compases que quedan en la sección actual. El panel pulsa en cada beat — <strong>rojo en el tiempo 1</strong>, verde en los demás. Abajo del número aparece el beat actual, por ejemplo <strong>4 / 2</strong> significa "tiempo 2 de un compás de 4 beats".</p>
+          <p>Si el acorde activo dura 2 beats, el contador cambia a <strong>2 / 1</strong> y <strong>2 / 2</strong> automáticamente.</p>
+        </div>
+        <div class="help-block">
+          <div class="help-block-title"><span class="hicon">🎵</span> Acordes en el header</div>
+          <p>Arriba a la izquierda siempre ves <strong>acorde actual → próximo acorde</strong>. Se actualiza en cada beat según los beats configurados.</p>
+        </div>
+        <div class="help-block">
+          <div class="help-block-title"><span class="hicon">📝</span> Letra</div>
+          <p>La línea activa aparece en <strong>blanco brillante</strong>. Las anteriores se oscurecen, las próximas aparecen en gris. El scroll es automático.</p>
+        </div>
+      </div>
+
+      <div class="help-section">
+        <div class="help-section-title">Sincronización entre dispositivos</div>
+        <div class="help-block">
+          <div class="help-block-title"><span class="hicon">⟳</span> Cómo conectar la banda</div>
+          <div class="help-step"><div class="help-step-num">1</div><div class="help-step-text">El <strong>Director</strong> va a Sincronizar y copia el código de 6 letras.</div></div>
+          <div class="help-step"><div class="help-step-num">2</div><div class="help-step-text">Cada <strong>Miembro</strong> va a Sincronizar, elige "Miembro", ingresa el código y toca "Unirse".</div></div>
+          <div class="help-step"><div class="help-step-num">3</div><div class="help-step-text">El miembro va directo a la pantalla de espera. <strong>Tocá la pantalla para activar el audio</strong> — esto es obligatorio en móviles.</div></div>
+          <div class="help-step"><div class="help-step-num">4</div><div class="help-step-text">Cuando el Director toca Play, todos ven el countdown y arrancan juntos.</div></div>
+          <div class="help-tip">💡 Esperá 5-10 segundos después de conectar antes de tocar Play — el sistema mide la latencia de red para sincronizar mejor.</div>
+          <div class="help-warn">⚠ La sincronización funciona sobre WiFi o red móvil. En redes con mucha latencia (>200ms) puede haber desfase de 1-2 beats.</div>
+        </div>
+        <div class="help-block">
+          <div class="help-block-title"><span class="hicon">👥</span> Roles</div>
+          <p><strong>Director:</strong> controla Play, Stop y navegación entre temas. Generalmente el que lleva el tiempo (batería o guitarra rítmica).</p>
+          <p><strong>Miembro:</strong> recibe todo en tiempo real, sin controles. Solo ve la pantalla.</p>
+        </div>
+      </div>
+
+      <div class="help-section">
+        <div class="help-section-title">Guardar y compartir</div>
+        <div class="help-block">
+          <div class="help-block-title"><span class="hicon">💾</span> Guardado automático</div>
+          <p>Todo se guarda automáticamente en tu dispositivo (localStorage). Si iniciaste sesión con Google, también se guarda en la nube y podés acceder desde cualquier dispositivo.</p>
+        </div>
+        <div class="help-block">
+          <div class="help-block-title"><span class="hicon">📤</span> Compartir con la banda</div>
+          <p>En Configuración → Datos podés exportar el setlist completo como archivo JSON. Cualquier músico puede importarlo en su app con "Importar setlist".</p>
+          <p>También podés exportar un tema individual usando el botón ↓ en cada tema del setlist.</p>
+        </div>
+      </div>
+
+      <div class="help-section">
+        <div class="help-section-title">Instalar como app (PWA)</div>
+        <div class="help-block">
+          <div class="help-block-title"><span class="hicon">📱</span> Android / Chrome</div>
+          <p>Abrí la app en Chrome → menú (⋮) → "Instalar app" o "Agregar a pantalla de inicio". La app funciona como app nativa, sin barra del browser, y mantiene la pantalla encendida durante el show.</p>
+        </div>
+        <div class="help-block">
+          <div class="help-block-title"><span class="hicon">🍎</span> iOS / Safari</div>
+          <p>Abrí la app en Safari → botón compartir (□↑) → "Agregar a pantalla de inicio". En iOS el audio puede requerir un tap inicial antes de que el metrónomo funcione.</p>
+        </div>
+      </div>
+
+      <div class="help-section">
+        <div class="help-section-title">Bugs conocidos y limitaciones</div>
+        <div class="help-block">
+          <p>• La sincronización de beats entre dispositivos es experimental. Funciona bien en redes locales (WiFi), pero puede tener desfase sobre datos móviles.</p>
+          <p>• Las guías de voz dependen del motor de síntesis del dispositivo. En algunos Android la voz puede sonar robótica o no estar disponible en español.</p>
+          <p>• En iOS Safari el AudioContext requiere interacción del usuario antes de funcionar. Siempre tocá la pantalla antes de esperar el show.</p>
+          <p>• El editor no tiene soporte para compases irregulares mezclados (ej: 7/8 en una sección y 4/4 en otra).</p>
+          <p>• No hay undo/redo en el editor.</p>
+          <div class="help-warn">Si encontrás un bug crítico o tenés una sugerencia, escribime. Los contactos están en el perfil de la app.</div>
+        </div>
+      </div>
+
+      <div style="text-align:center;padding:24px 0 40px;color:var(--text3);font-size:13px;line-height:2;">
+        Hecho con mucho café y pocas horas libres ☕<br>
+        <span style="color:var(--text2)">BandPrompt</span> — libre, experimental, en construcción permanente<br>
+        <button onclick="window.open('https://ko-fi.com/jnarese','_blank')" style="margin-top:12px;background:#FF5E5B;border:none;color:#fff;padding:10px 24px;border-radius:8px;cursor:pointer;font-size:14px;font-family:var(--sans);">☕ Invitame una cerveza en Ko-fi</button>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script>
+// Service Worker registration
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./sw.js', { scope: './' })
+      .then(r => console.log('[PWA] SW registered'))
+      .catch(e => console.log('[PWA] SW failed:', e));
+  });
+}
+
+// Wake Lock — keep screen on during show
+let wakeLock = null;
+async function requestWakeLock() {
+  if ('wakeLock' in navigator) {
+    try {
+      wakeLock = await navigator.wakeLock.request('screen');
+    } catch(e) {}
+  }
+}
+async function releaseWakeLock() {
+  if (wakeLock) { try { await wakeLock.release(); } catch(e) {} wakeLock = null; }
+}
+// Re-acquire if page becomes visible again
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible' && isPlaying) requestWakeLock();
+});
+</script>
+</body>
+</html>
