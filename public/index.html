@@ -1006,7 +1006,9 @@ let sectionStartScheduledBeat = 0; // scheduledBeat value when current section b
 
 function getAudioEngine() {
   if (!audioEngine) audioEngine = new AudioEngine();
-  audioEngine.init();
+  // Comparte el AudioContext existente (ya desbloqueado por gesto de usuario)
+  // en vez de crear uno nuevo que quedaría suspended en móvil.
+  if (!audioEngine.ctx) audioEngine.ctx = getAudioCtx();
   return audioEngine;
 }
 
