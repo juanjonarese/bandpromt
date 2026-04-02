@@ -2338,14 +2338,28 @@ function syncReceiveCountdown(payload) {
       : Math.max(1, countBeats - Math.floor(-msUntilCountdownStart / (secPerBeat * 1000)));
     runCountdownUI(song, audioStart, secPerBeat, timeSig, beatsToShow);
   }
+  // Pre-calcular el tiempo exacto del primer beat en el reloj del AudioContext.
+  // Esto evita el doble error de setTimeout (imprecisión de ±50ms en móvil) +
+  // el offset fijo de 50ms que tenía startAudioMetronome().
+  // El scheduler arranca ya, pero nextBeatTime apunta al futuro exacto → no
+  // programa ningún beat hasta que llegue ese instante, perfectamente alineado
+  // con el director.
+  const audioTimeForSongStart = ctx.currentTime + Math.max(0.02, msUntilSongStart / 1000);
+  if (schedulerTimer) { clearInterval(schedulerTimer); schedulerTimer = null; }
+  currentBarInSection = 1;
+  sectionStartScheduledBeat = 0;
+  scheduledBeat = 0;
+  nextBeatTime = audioTimeForSongStart;
+  isPlaying = true;
+  schedulerTimer = setInterval(scheduleBeats, lookahead);
+
+  const msUntilOverlay = Math.max(0, msUntilSongStart);
   setTimeout(() => {
-    currentBarInSection = 1; isPlaying = true; sectionStartScheduledBeat = 0;
-    startAudioMetronome();
     const overlay = document.getElementById('startCountdown');
     if (overlay) overlay.classList.remove('visible');
     const btn = document.getElementById('playBtn');
     if (btn) btn.innerHTML = '<svg viewBox="0 0 24 24" style="width:18px;height:18px;fill:#000"><rect x="5" y="3" width="4" height="18"/><rect x="15" y="3" width="4" height="18"/></svg>';
-  }, Math.max(0, msUntilSongStart));
+  }, msUntilOverlay);
 }
 
 function syncUpdateStatus(connected) {
